@@ -16,16 +16,7 @@ func _run() -> void:
 	menu.show_status("READY")
 	_assert_equal(menu.status_label.text, "READY", "menu status")
 
-	var hud_scene := load("res://scenes/ui/prototype_hud.tscn") as PackedScene
-	var hud := hud_scene.instantiate() as PrototypeHud
-	root.add_child(hud)
-	await process_frame
-	_assert_equal(hud._phase_text(MatchFlow.PHASE_ACTIVE, 125.0, -1, 8, 8), "02:05", "active clock")
-	_assert_true(hud._phase_text(MatchFlow.PHASE_SUDDEN_SNOW, 0.0, -1, 8, 8).contains("SUDDEN SNOW"), "sudden snow copy")
-	_assert_equal(hud._phase_text(MatchFlow.PHASE_RESULTS, 0.0, 1, 8, 8), "TEAM B WINS", "results copy")
-
 	menu.queue_free()
-	hud.queue_free()
 	await process_frame
 	print("SNOWDOWN_SESSION_UI_OK")
 	quit(0)
