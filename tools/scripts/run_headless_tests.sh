@@ -42,6 +42,9 @@ run_godot --headless --path "$ROOT" -s tests/unit/winter_character_palette_test.
 echo "== Snowdown: controller input =="
 run_godot --headless --path "$ROOT" -s tests/unit/controller_input_test.gd
 
+echo "== Snowdown: gameplay input gate =="
+run_godot --headless --path "$ROOT" -s tests/unit/gameplay_input_gate_test.gd
+
 echo "== Snowdown: session addressing =="
 run_godot --headless --path "$ROOT" -s tests/unit/session_address_test.gd
 
