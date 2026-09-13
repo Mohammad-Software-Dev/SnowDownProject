@@ -7,8 +7,11 @@ var resume_button: Button
 var return_button: Button
 var mouse_slider: HSlider
 var controller_slider: HSlider
+var render_scale_slider: HSlider
+var vsync_toggle: CheckButton
 var mouse_value_label: Label
 var controller_value_label: Label
+var render_scale_value_label: Label
 var mode_label: Label
 
 var _input_snapshot: Dictionary = {}
@@ -78,8 +81,11 @@ func _sync_setting_controls() -> void:
 	var config := GameConfig.player_movement
 	mouse_slider.set_value_no_signal(config.mouse_sensitivity)
 	controller_slider.set_value_no_signal(config.controller_look_radians_per_second)
+	render_scale_slider.set_value_no_signal(get_viewport().scaling_3d_scale)
+	vsync_toggle.set_pressed_no_signal(DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED)
 	_update_mouse_value(config.mouse_sensitivity)
 	_update_controller_value(config.controller_look_radians_per_second)
+	_update_render_scale_value(get_viewport().scaling_3d_scale)
 
 func _on_mouse_sensitivity_changed(value: float) -> void:
 	GameConfig.player_movement.mouse_sensitivity = clampf(value, mouse_slider.min_value, mouse_slider.max_value)
@@ -89,11 +95,22 @@ func _on_controller_sensitivity_changed(value: float) -> void:
 	GameConfig.player_movement.controller_look_radians_per_second = clampf(value, controller_slider.min_value, controller_slider.max_value)
 	_update_controller_value(GameConfig.player_movement.controller_look_radians_per_second)
 
+func _on_render_scale_changed(value: float) -> void:
+	var scale := clampf(value, render_scale_slider.min_value, render_scale_slider.max_value)
+	get_viewport().scaling_3d_scale = scale
+	_update_render_scale_value(scale)
+
+func _on_vsync_toggled(enabled: bool) -> void:
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if enabled else DisplayServer.VSYNC_DISABLED)
+
 func _update_mouse_value(value: float) -> void:
 	mouse_value_label.text = "%.1f mrad / pixel" % (value * 1000.0)
 
 func _update_controller_value(value: float) -> void:
 	controller_value_label.text = "%d° / sec" % int(round(rad_to_deg(value)))
+
+func _update_render_scale_value(value: float) -> void:
+	render_scale_value_label.text = "%d%% 3D resolution" % int(round(value * 100.0))
 
 func _build_ui() -> void:
 	var backdrop := ColorRect.new()
@@ -124,7 +141,7 @@ func _build_ui() -> void:
 	panel.add_child(margin)
 
 	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 12)
+	content.add_theme_constant_override("separation", 10)
 	margin.add_child(content)
 
 	var title := Label.new()
@@ -162,6 +179,24 @@ func _build_ui() -> void:
 	controller_value_label = Label.new()
 	controller_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	content.add_child(controller_value_label)
+
+	content.add_child(_separator())
+	content.add_child(_setting_label("3D RENDER SCALE"))
+	render_scale_slider = HSlider.new()
+	render_scale_slider.min_value = 0.60
+	render_scale_slider.max_value = 1.00
+	render_scale_slider.step = 0.05
+	render_scale_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	render_scale_slider.value_changed.connect(_on_render_scale_changed)
+	content.add_child(render_scale_slider)
+	render_scale_value_label = Label.new()
+	render_scale_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	content.add_child(render_scale_value_label)
+
+	vsync_toggle = CheckButton.new()
+	vsync_toggle.text = "VSync"
+	vsync_toggle.toggled.connect(_on_vsync_toggled)
+	content.add_child(vsync_toggle)
 
 	content.add_child(_separator())
 	resume_button = Button.new()
