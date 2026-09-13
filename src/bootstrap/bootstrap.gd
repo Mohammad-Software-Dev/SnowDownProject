@@ -48,6 +48,7 @@ func _start_configured_runtime() -> void:
 		add_child(NETWORK_SESSION.instantiate())
 
 	if not App.is_server_runtime():
+		add_child(ControllerLookBridge.new())
 		add_child(PROTOTYPE_HUD.instantiate())
 		add_child(FirstPersonArmsPresenter.new())
 		add_child(DEBUG_OVERLAY.instantiate())
