@@ -60,6 +60,9 @@ run_godot --headless --path "$ROOT" -s tests/unit/map01_layout_test.gd
 echo "== Snowdown: Glacier Valley visual spec =="
 run_godot --headless --path "$ROOT" -s tests/unit/glacier_valley_visual_spec_test.gd
 
+echo "== Snowdown: visual runtime resources =="
+run_godot --headless --path "$ROOT" -s tests/smoke/visual_runtime_smoke.gd
+
 echo "== Snowdown: boot TestArena =="
 timeout --kill-after=2s 10s "$GODOT_BIN" --headless --path "$ROOT" --quit-after 3 -- --scenario=test_arena_origin
 

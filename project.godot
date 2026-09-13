@@ -8,7 +8,7 @@ config_version=5
 
 config/name="Snowdown"
 run/main_scene="res://scenes/bootstrap/bootstrap.tscn"
-config/features=PackedStringArray("4.3", "GL Compatibility")
+config/features=PackedStringArray("4.3", "Forward Plus")
 
 [autoload]
 
@@ -47,6 +47,6 @@ reset_test={"deadzone": 0.2, "events": []}
 
 [rendering]
 
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
-environment/defaults/default_clear_color=Color(0.055, 0.085, 0.12, 1)
+renderer/rendering_method="forward_plus"
+renderer/rendering_method.mobile="mobile"
+environment/defaults/default_clear_color=Color(0.025, 0.055, 0.085, 1)

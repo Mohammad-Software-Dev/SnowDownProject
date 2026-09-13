@@ -6,6 +6,8 @@ extends CanvasLayer
 
 func _ready() -> void:
 	visible = not App.is_server_runtime()
+	if panel != null:
+		panel.visible = App.has_explicit_launch_arguments()
 
 func _process(_delta: float) -> void:
 	if Input.is_action_just_pressed("debug_overlay"): panel.visible = not panel.visible

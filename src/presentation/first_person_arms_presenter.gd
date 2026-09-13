@@ -54,20 +54,34 @@ func _ensure_rig() -> void:
 	_right_root = _build_hand("RightHand", 1.0)
 	_rig_root.add_child(_left_root)
 	_rig_root.add_child(_right_root)
+
 	_snowball = MeshInstance3D.new()
 	_snowball.name = "HeldSnowball"
 	var sphere := SphereMesh.new()
-	sphere.radius = 0.09
-	sphere.height = 0.18
-	sphere.radial_segments = 16
-	sphere.rings = 8
+	sphere.radius = 0.095
+	sphere.height = 0.19
+	sphere.radial_segments = 24
+	sphere.rings = 12
 	_snowball.mesh = sphere
-	var snow_material := StandardMaterial3D.new()
-	snow_material.albedo_color = Color(0.95, 0.98, 1.0, 1.0)
-	snow_material.roughness = 0.97
-	_snowball.material_override = snow_material
+	_snowball.material_override = _material(Color(0.965, 0.985, 1.0, 1.0), 0.92)
 	_snowball.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_rig_root.add_child(_snowball)
+	_add_snowball_clump(Vector3(0.048, 0.014, -0.040), 0.040)
+	_add_snowball_clump(Vector3(-0.035, 0.046, 0.018), 0.032)
+	_add_snowball_clump(Vector3(-0.018, -0.045, -0.026), 0.027)
+
+func _add_snowball_clump(offset: Vector3, radius: float) -> void:
+	var clump := MeshInstance3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = radius
+	mesh.height = radius * 2.0
+	mesh.radial_segments = 12
+	mesh.rings = 6
+	clump.mesh = mesh
+	clump.position = offset
+	clump.material_override = _material(Color(0.91, 0.955, 0.985, 1.0), 0.96)
+	clump.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_snowball.add_child(clump)
 
 func _build_hand(node_name: String, side: float) -> Node3D:
 	var root := Node3D.new()
@@ -75,50 +89,86 @@ func _build_hand(node_name: String, side: float) -> Node3D:
 
 	var forearm := MeshInstance3D.new()
 	forearm.name = "Forearm"
-	var forearm_mesh := CapsuleMesh.new()
-	forearm_mesh.radius = 0.055
-	forearm_mesh.height = 0.40
+	var forearm_mesh := CylinderMesh.new()
+	forearm_mesh.top_radius = 0.052
+	forearm_mesh.bottom_radius = 0.078
+	forearm_mesh.height = 0.42
+	forearm_mesh.radial_segments = 20
 	forearm.mesh = forearm_mesh
-	forearm.position = Vector3(0.0, -0.17, 0.07)
-	forearm.material_override = _material(WinterCharacterPalette.NEUTRAL_JACKET, 0.82)
+	forearm.position = Vector3(0.0, -0.18, 0.075)
+	forearm.material_override = _material(WinterCharacterPalette.NEUTRAL_JACKET, 0.72)
 	forearm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(forearm)
+
+	var sleeve_panel := MeshInstance3D.new()
+	sleeve_panel.name = "SleevePanel"
+	var sleeve_mesh := BoxMesh.new()
+	sleeve_mesh.size = Vector3(0.075, 0.18, 0.018)
+	sleeve_panel.mesh = sleeve_mesh
+	sleeve_panel.position = Vector3(0.0, -0.18, -0.005)
+	sleeve_panel.material_override = _material(WinterCharacterPalette.NEUTRAL_ACCENT, 0.62)
+	sleeve_panel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(sleeve_panel)
 
 	var cuff := MeshInstance3D.new()
 	cuff.name = "TeamCuff"
 	var cuff_mesh := CylinderMesh.new()
-	cuff_mesh.top_radius = 0.067
-	cuff_mesh.bottom_radius = 0.071
-	cuff_mesh.height = 0.065
-	cuff_mesh.radial_segments = 14
+	cuff_mesh.top_radius = 0.068
+	cuff_mesh.bottom_radius = 0.075
+	cuff_mesh.height = 0.072
+	cuff_mesh.radial_segments = 18
 	cuff.mesh = cuff_mesh
-	cuff.position = Vector3(0.0, -0.045, 0.015)
-	cuff.material_override = _material(WinterCharacterPalette.NEUTRAL_ACCENT, 0.80)
+	cuff.position = Vector3(0.0, -0.045, 0.018)
+	cuff.material_override = _material(WinterCharacterPalette.NEUTRAL_ACCENT, 0.58)
 	cuff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(cuff)
 
-	var glove := MeshInstance3D.new()
-	glove.name = "Glove"
-	var glove_mesh := SphereMesh.new()
-	glove_mesh.radius = 0.073
-	glove_mesh.height = 0.145
-	glove_mesh.radial_segments = 14
-	glove_mesh.rings = 7
-	glove.mesh = glove_mesh
-	glove.scale = Vector3(1.08, 0.96, 0.92)
-	glove.material_override = _material(WinterCharacterPalette.GLOVE, 0.94)
-	glove.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(glove)
+	var palm := MeshInstance3D.new()
+	palm.name = "Glove"
+	var palm_mesh := SphereMesh.new()
+	palm_mesh.radius = 0.071
+	palm_mesh.height = 0.13
+	palm_mesh.radial_segments = 18
+	palm_mesh.rings = 9
+	palm.mesh = palm_mesh
+	palm.scale = Vector3(1.02, 0.76, 1.10)
+	palm.position = Vector3(0.0, 0.015, -0.018)
+	palm.material_override = _material(WinterCharacterPalette.GLOVE, 0.76, 0.025)
+	palm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(palm)
+
+	var knuckle_pad := MeshInstance3D.new()
+	knuckle_pad.name = "KnucklePad"
+	var knuckle_mesh := BoxMesh.new()
+	knuckle_mesh.size = Vector3(0.112, 0.034, 0.070)
+	knuckle_pad.mesh = knuckle_mesh
+	knuckle_pad.position = Vector3(0.0, 0.032, -0.058)
+	knuckle_pad.material_override = _material(WinterCharacterPalette.GLOVE.lightened(0.035), 0.70, 0.02)
+	knuckle_pad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(knuckle_pad)
+
+	for finger_index in range(4):
+		var finger := MeshInstance3D.new()
+		finger.name = "Finger%d" % finger_index
+		var finger_mesh := CapsuleMesh.new()
+		finger_mesh.radius = 0.0145
+		finger_mesh.height = 0.078 + float(finger_index == 1 or finger_index == 2) * 0.008
+		finger.mesh = finger_mesh
+		finger.position = Vector3((-0.041 + finger_index * 0.027) * side, 0.018, -0.091)
+		finger.rotation_degrees.x = 78.0
+		finger.material_override = _material(WinterCharacterPalette.GLOVE, 0.78, 0.02)
+		finger.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(finger)
 
 	var thumb := MeshInstance3D.new()
 	thumb.name = "Thumb"
 	var thumb_mesh := CapsuleMesh.new()
-	thumb_mesh.radius = 0.025
-	thumb_mesh.height = 0.085
+	thumb_mesh.radius = 0.024
+	thumb_mesh.height = 0.090
 	thumb.mesh = thumb_mesh
-	thumb.position = Vector3(0.058 * side, -0.006, -0.004)
-	thumb.rotation_degrees = Vector3(0.0, 0.0, -48.0 * side)
-	thumb.material_override = _material(WinterCharacterPalette.GLOVE, 0.94)
+	thumb.position = Vector3(0.060 * side, 0.005, -0.020)
+	thumb.rotation_degrees = Vector3(18.0, 0.0, -50.0 * side)
+	thumb.material_override = _material(WinterCharacterPalette.GLOVE, 0.78, 0.02)
 	thumb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(thumb)
 	return root
@@ -133,16 +183,20 @@ func _apply_team_palette(team_index: int) -> void:
 		if hand_root == null:
 			continue
 		var forearm := hand_root.get_node_or_null("Forearm") as MeshInstance3D
+		var sleeve_panel := hand_root.get_node_or_null("SleevePanel") as MeshInstance3D
 		var cuff := hand_root.get_node_or_null("TeamCuff") as MeshInstance3D
 		if forearm != null:
-			forearm.material_override = _material(jacket, 0.82)
+			forearm.material_override = _material(jacket, 0.72)
+		if sleeve_panel != null:
+			sleeve_panel.material_override = _material(accent.darkened(0.08), 0.60)
 		if cuff != null:
-			cuff.material_override = _material(accent, 0.80)
+			cuff.material_override = _material(accent, 0.56)
 
-func _material(color: Color, roughness: float) -> StandardMaterial3D:
+func _material(color: Color, roughness: float, metallic: float = 0.0) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.roughness = roughness
+	material.metallic = metallic
 	return material
 
 func _local_snapshot() -> Dictionary:
