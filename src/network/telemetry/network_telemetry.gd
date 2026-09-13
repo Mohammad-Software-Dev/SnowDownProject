@@ -37,8 +37,8 @@ func reset_for_round(new_round_number: int) -> void:
 func note_roster(roster: Dictionary) -> void:
 	var count_a := 0
 	var count_b := 0
-	for raw_state in roster.values():
-		var state_data := raw_state as Dictionary
+	for raw_state: Variant in roster.values():
+		var state_data: Dictionary = raw_state as Dictionary
 		if state_data == null:
 			continue
 		if int(state_data.get("team", -1)) == 0:
@@ -73,11 +73,11 @@ func sample_players(players: Array[Node]) -> void:
 		var player_node := node as Node3D
 		if player_node == null:
 			continue
-		var raw_team := player_node.get("team_index")
+		var raw_team: Variant = player_node.get("team_index")
 		if raw_team == null:
 			continue
-		var team := int(raw_team)
-		var z := player_node.global_position.z
+		var team: int = int(raw_team)
+		var z: float = player_node.global_position.z
 		if absf(z) <= CENTER_HALF_LENGTH:
 			if team == 0:
 				team_a_center_samples += 1
