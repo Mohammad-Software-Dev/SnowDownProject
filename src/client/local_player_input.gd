@@ -22,5 +22,10 @@ func consume_command() -> PlayerInputCommand:
 	command.sprint_held = Input.is_action_pressed("sprint")
 	command.crouch_pressed = Input.is_action_just_pressed("crouch_slide")
 	command.crouch_held = Input.is_action_pressed("crouch_slide")
+	command.pack_held = Input.is_action_pressed("pack_interact")
+	command.throw_pressed = Input.is_action_just_pressed("throw_primary")
+	command.throw_held = Input.is_action_pressed("throw_primary")
+	command.throw_released = Input.is_action_just_released("throw_primary")
+	command.catch_pressed = Input.is_action_just_pressed("catch")
 	_look_accumulator = Vector2.ZERO
 	return command

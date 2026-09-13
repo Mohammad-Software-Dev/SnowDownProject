@@ -18,7 +18,7 @@ func _ready() -> void:
 	_body = get_node("../..") as CharacterBody3D
 	assert(_body != null, "PlayerMovementComponent must be two levels below CharacterBody3D")
 
-func simulate(command: PlayerInputCommand, delta: float) -> void:
+func simulate(command: PlayerInputCommand, delta: float, speed_multiplier: float = 1.0) -> void:
 	var config := GameConfig.player_movement
 	_update_grace_windows(command, delta, config)
 
@@ -28,7 +28,7 @@ func simulate(command: PlayerInputCommand, delta: float) -> void:
 	if _sliding:
 		_simulate_slide(delta, config)
 	else:
-		_simulate_standard_movement(command, delta, config)
+		_simulate_standard_movement(command, delta, config, speed_multiplier)
 
 	_try_jump(config)
 	_apply_gravity(delta, config)
@@ -86,7 +86,7 @@ func _simulate_slide(delta: float, config: PlayerMovementConfig) -> void:
 	if _slide_remaining <= 0.0 or speed < config.slide_min_speed or not _body.is_on_floor():
 		_sliding = false
 
-func _simulate_standard_movement(command: PlayerInputCommand, delta: float, config: PlayerMovementConfig) -> void:
+func _simulate_standard_movement(command: PlayerInputCommand, delta: float, config: PlayerMovementConfig, speed_multiplier: float) -> void:
 	var local_wish := Vector3(command.move.x, 0.0, command.move.y)
 	var world_wish := (_body.global_transform.basis * local_wish)
 	world_wish.y = 0.0
@@ -100,6 +100,7 @@ func _simulate_standard_movement(command: PlayerInputCommand, delta: float, conf
 
 	if not _body.is_on_floor():
 		target_speed = minf(target_speed, config.air_speed_cap)
+	target_speed *= clampf(speed_multiplier, 0.0, 1.0)
 
 	var target_velocity := world_wish * target_speed
 	var acceleration := config.air_acceleration

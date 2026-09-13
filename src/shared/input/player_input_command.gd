@@ -7,8 +7,8 @@ var jump_pressed: bool = false
 var sprint_held: bool = false
 var crouch_pressed: bool = false
 var crouch_held: bool = false
-
-func clear_transients() -> void:
-	look_delta = Vector2.ZERO
-	jump_pressed = false
-	crouch_pressed = false
+var pack_held: bool = false
+var throw_pressed: bool = false
+var throw_held: bool = false
+var throw_released: bool = false
+var catch_pressed: bool = false
