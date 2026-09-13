@@ -12,15 +12,19 @@ SERVER_LOG="$TMP/server.log"
 CLIENT_A_LOG="$TMP/client_a.log"
 CLIENT_B_LOG="$TMP/client_b.log"
 SERVER_PID=""
+CLIENT_A_PID=""
+CLIENT_B_PID=""
 
 cleanup() {
-  if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; fi
+  for pid in "$CLIENT_A_PID" "$CLIENT_B_PID" "$SERVER_PID"; do
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then kill -KILL "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
+  done
   rm -rf "$TMP"
 }
 trap cleanup EXIT
 
 cd "$ROOT"
-timeout 22s "$GODOT_BIN" --headless --path "$ROOT" -- --server --world=glacier_valley --port="$PORT" --network-smoke-layout=catch_lane >"$SERVER_LOG" 2>&1 &
+timeout --kill-after=2s 22s "$GODOT_BIN" --headless --path "$ROOT" -- --server --world=glacier_valley --port="$PORT" --network-smoke-layout=catch_lane >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 for _ in $(seq 1 40); do
   if grep -q "SNOWDOWN_NETWORK_SERVER_READY" "$SERVER_LOG"; then break; fi
@@ -32,10 +36,10 @@ if ! grep -q "SNOWDOWN_NETWORK_SERVER_READY" "$SERVER_LOG"; then cat "$SERVER_LO
 SIM_ARGS=(--net-sim-latency-ms="$LATENCY" --net-sim-jitter-ms="$JITTER" --net-sim-loss-percent="$LOSS")
 # Start the catcher first so it owns the near team-A fixture slot. The thrower then
 # receives the team-B slot placed directly on the mirrored snow source at z=-14.
-timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=B --network-smoke-expected=2 --network-smoke-action=catch "${SIM_ARGS[@]}" >"$CLIENT_B_LOG" 2>&1 &
+timeout --kill-after=2s 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=B --network-smoke-expected=2 --network-smoke-action=catch "${SIM_ARGS[@]}" >"$CLIENT_B_LOG" 2>&1 &
 CLIENT_B_PID=$!
 sleep 0.25
-timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=A --network-smoke-expected=2 --network-smoke-action=pack_throw "${SIM_ARGS[@]}" >"$CLIENT_A_LOG" 2>&1 &
+timeout --kill-after=2s 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=A --network-smoke-expected=2 --network-smoke-action=pack_throw "${SIM_ARGS[@]}" >"$CLIENT_A_LOG" 2>&1 &
 CLIENT_A_PID=$!
 
 STATUS=0
