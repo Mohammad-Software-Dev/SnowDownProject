@@ -30,6 +30,9 @@ var _next_projectile_id: int = 1
 var _ping_elapsed: float = 0.0
 var _smoke_ready_elapsed: float = 0.0
 var _smoke_roster_latched: bool = false
+var _telemetry := NetworkTelemetry.new()
+var _telemetry_sample_elapsed: float = 0.0
+var _scale_reported: bool = false
 
 func _ready() -> void:
 	add_to_group("network_session")
@@ -54,7 +57,9 @@ func _ready() -> void:
 		_start_client()
 
 func _process(delta: float) -> void:
-	if not App.is_server_runtime() and state == &"connected":
+	if App.is_server_runtime():
+		_update_server_telemetry(delta)
+	elif state == &"connected":
 		_ping_elapsed += delta
 		if _ping_elapsed >= 1.0:
 			_ping_elapsed = 0.0
@@ -96,6 +101,7 @@ func get_debug_snapshot() -> Dictionary:
 		"catch_rewind_ms": catch_rewind_ms, "catch_succeeded": catch_succeeded, "spawn_protection": spawn_protection,
 		"match_phase": match_snapshot.get("phase", &"waiting"), "match_time_remaining": match_snapshot.get("time_remaining", 0.0),
 		"match_round": match_snapshot.get("round_number", 0), "match_winner_team": match_snapshot.get("winner_team", -1),
+		"telemetry": _telemetry.get_snapshot(),
 		"sim_latency_ms": App.net_sim_latency_ms, "sim_jitter_ms": App.net_sim_jitter_ms, "sim_loss_percent": App.net_sim_loss_percent,
 	}
 
@@ -124,6 +130,7 @@ func server_spawn_snowball(owner: NetworkPlayer, normalized_charge: float, input
 	projectile.state_updated.connect(_on_server_projectile_state)
 	projectile.terminal_resolved.connect(_on_server_projectile_terminal)
 	_server_projectiles[projectile_id] = projectile
+	_telemetry.note_throw(owner.team_index, _server_projectiles.size())
 	client_spawn_snowball.rpc(projectile_id, owner.network_peer_id, input_sequence, spawn_position, projectile_velocity)
 	print("SNOWDOWN_NETWORK_THROW_ACCEPTED owner=%d projectile=%d input=%d" % [owner.network_peer_id, projectile_id, input_sequence])
 
@@ -173,6 +180,21 @@ func server_clear_all_projectiles(reason: StringName) -> void:
 	_server_projectiles.clear()
 	client_clear_projectiles.rpc(reason)
 
+func server_begin_round_telemetry(round_number: int) -> void:
+	if not App.is_server_runtime():
+		return
+	_telemetry.reset_for_round(round_number)
+	_telemetry.note_roster(_roster)
+	_scale_reported = false
+
+func server_print_round_telemetry(reason: StringName) -> void:
+	if not App.is_server_runtime():
+		return
+	print("SNOWDOWN_MATCH_TELEMETRY reason=%s %s" % [reason, _telemetry.summary(team_a_score, team_b_score)])
+
+func server_get_telemetry_snapshot() -> Dictionary:
+	return _telemetry.get_snapshot()
+
 func _start_server() -> void:
 	_peer = ENetMultiplayerPeer.new()
 	var error := _peer.create_server(App.network_port, MAX_CLIENTS)
@@ -198,11 +220,14 @@ func _start_client() -> void:
 func _on_peer_connected(peer_id: int) -> void:
 	if not App.is_server_runtime():
 		return
-	var team := _roster.size() % 2
+	var count_a := _count_team_members(0)
+	var count_b := _count_team_members(1)
+	var team := 0 if count_a <= count_b else 1
 	var slot := _count_team_members(team)
 	var spawn := _spawn_for_team(team, slot)
 	var yaw := 0.0 if team == 0 else 180.0
 	_roster[peer_id] = {"team": team, "position": spawn, "yaw": yaw}
+	_telemetry.note_roster(_roster)
 	_spawn_avatar(peer_id, team, spawn, yaw, false, true)
 	for existing_peer_id in _roster.keys():
 		if int(existing_peer_id) == peer_id:
@@ -218,11 +243,12 @@ func _on_peer_connected(peer_id: int) -> void:
 	var joined_player := server_get_player(peer_id)
 	if joined_player != null and _match_coordinator != null and (_match_coordinator.phase == MatchFlow.PHASE_ACTIVE or _match_coordinator.phase == MatchFlow.PHASE_SUDDEN_SNOW):
 		joined_player.server_grant_spawn_protection(GameConfig.match_rules.spawn_protection_seconds)
-	print("[Snowdown][net] peer joined id=%d team=%d roster=%d" % [peer_id, team, _roster.size()])
+	print("[Snowdown][net] peer joined id=%d team=%d roster=%d spawn=(%.1f,%.1f,%.1f)" % [peer_id, team, _roster.size(), spawn.x, spawn.y, spawn.z])
 
 func _on_peer_disconnected(peer_id: int) -> void:
 	if App.is_server_runtime():
 		_roster.erase(peer_id)
+		_telemetry.note_roster(_roster)
 		_despawn_avatar(peer_id)
 		client_despawn_player.rpc(peer_id)
 		print("[Snowdown][net] peer left id=%d roster=%d" % [peer_id, _roster.size()])
@@ -349,6 +375,10 @@ func _count_team_members(team: int) -> int:
 func _spawn_for_team(team: int, slot: int) -> Vector3:
 	if App.network_smoke_layout == &"catch_lane":
 		return Vector3(0.0, 1.15, -7.0) if team == 0 else Vector3(0.0, 1.15, -14.0)
+	if App.network_smoke_layout == &"scale_4v4":
+		var scale_offsets := [-3.0, -1.0, 1.0, 3.0]
+		var scale_x := float(scale_offsets[mini(slot, scale_offsets.size() - 1)])
+		return Vector3(scale_x, 1.15, 14.0 if team == 0 else -14.0)
 	var scenario := &"map01_spawn_team_a" if team == 0 else &"map01_spawn_team_b"
 	var spawn := MAP01_LAYOUT.spawn_for(GameConfig.glacier_valley, scenario)
 	var lateral_offsets := [-9.0, -3.0, 3.0, 9.0]
@@ -366,10 +396,46 @@ func _on_server_projectile_terminal(projectile_id: int, kind: StringName, target
 	if _match_coordinator != null:
 		resolved_kind = _match_coordinator.server_resolve_scoring(owner_peer_id, target_peer_id, kind)
 	_server_projectiles.erase(projectile_id)
+	_telemetry.note_terminal(resolved_kind)
 	client_resolve_snowball.rpc(projectile_id, resolved_kind, target_peer_id, world_position, team_a_score, team_b_score)
 
 func _on_prediction_expired(prediction_key: int) -> void:
 	_predicted_projectiles.erase(prediction_key)
+
+func _update_server_telemetry(delta: float) -> void:
+	_telemetry_sample_elapsed += delta
+	if _telemetry_sample_elapsed < 0.25:
+		return
+	_telemetry_sample_elapsed = 0.0
+	_telemetry.note_roster(_roster)
+	_telemetry.note_projectile_count(_server_projectiles.size())
+	_telemetry.note_rejected_inputs(_server_rejected_inputs_total())
+	var server_players: Array[Node] = []
+	for player_node in get_tree().get_nodes_in_group("network_server_player"):
+		server_players.append(player_node)
+	_telemetry.sample_players(server_players)
+	_maybe_report_scale_smoke()
+
+func _server_rejected_inputs_total() -> int:
+	var total := 0
+	for player_node in get_tree().get_nodes_in_group("network_server_player"):
+		var player := player_node as NetworkPlayer
+		if player != null:
+			total += player.server_rejected_inputs
+	return total
+
+func _maybe_report_scale_smoke() -> void:
+	if _scale_reported or App.network_smoke_layout != &"scale_4v4" or App.network_smoke_expected_peers < 8:
+		return
+	if _match_coordinator == null or _match_coordinator.phase != MatchFlow.PHASE_ACTIVE:
+		return
+	var snapshot := _telemetry.get_snapshot()
+	if int(snapshot["peak_roster"]) < 8 or int(snapshot["team_a_roster"]) != 4 or int(snapshot["team_b_roster"]) != 4:
+		return
+	if int(snapshot["team_a_throws"]) < 4 or int(snapshot["team_b_throws"]) < 4:
+		return
+	_scale_reported = true
+	print("SNOWDOWN_SCALE_4V4_OK %s" % _telemetry.summary(team_a_score, team_b_score))
 
 func _update_network_smoke(delta: float) -> void:
 	if App.network_smoke_expected_peers <= 0 or App.network_smoke_name.is_empty(): return
