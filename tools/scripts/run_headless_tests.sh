@@ -66,6 +66,9 @@ timeout --kill-after=2s 10s "$GODOT_BIN" --headless --path "$ROOT" --quit-after 
 echo "== Snowdown: authoritative catch latency matrix =="
 timeout --kill-after=3s 120s tests/network/latency_matrix.sh
 
+echo "== Snowdown: disconnect during action and rejoin =="
+timeout --kill-after=3s 22s bash tests/network/disconnect_rejoin_smoke.sh
+
 echo "== Snowdown: server-owned match loop =="
 timeout --kill-after=3s 20s bash tests/network/match_loop_smoke.sh
 
