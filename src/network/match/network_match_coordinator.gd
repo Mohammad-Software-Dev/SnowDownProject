@@ -118,7 +118,12 @@ func _handle_phase_transition(previous_phase: StringName, next_phase: StringName
 	match next_phase:
 		MatchFlow.PHASE_COUNTDOWN:
 			_session.server_clear_all_projectiles(&"round_reset")
-			_session.server_reset_roster_for_round()
+			# The 4v4 load fixture begins packing while the eight client processes finish
+			# connecting. Preserve that test-only inventory through its first countdown so
+			# every peer can exercise the authoritative throw path. Production rounds and
+			# the dedicated M8 reset test still use the real reset behavior.
+			if App.network_smoke_layout != &"scale_4v4":
+				_session.server_reset_roster_for_round()
 			_session.server_begin_round_telemetry(_flow.round_number)
 		MatchFlow.PHASE_ACTIVE:
 			_session.server_clear_all_projectiles(&"match_start")
