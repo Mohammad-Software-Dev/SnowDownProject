@@ -27,6 +27,10 @@ func _process(_delta: float) -> void:
 		lines.append("net: %s peer=%d roster=%d" % [net["state"], net["peer_id"], net["roster"]])
 		lines.append("rtt: %.1f ms  clock: %+.1f ms" % [net["rtt_ms"], net["clock_offset_ms"]])
 		lines.append("reconciliations: %d  rejected: %d" % [net["reconciliations"], net["server_rejected_inputs"]])
+		lines.append("network snowballs: %d predicted=%d merges=%d" % [net["projectiles"], net["predicted_projectiles"], net["prediction_merges"]])
+		lines.append("server score: A %d — %d B" % [net["team_a_score"], net["team_b_score"]])
+		if not String(net["last_event"]).is_empty():
+			lines.append("last net event: %s" % net["last_event"])
 
 	var gameplay_world := get_tree().get_first_node_in_group("prototype_gameplay_world")
 	if gameplay_world != null:

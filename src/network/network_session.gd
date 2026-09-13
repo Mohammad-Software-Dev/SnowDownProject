@@ -4,15 +4,27 @@ extends Node
 const SERVER_PEER_ID := 1
 const MAX_CLIENTS := 8
 const NETWORK_PLAYER_SCENE := preload("res://scenes/network/network_player.tscn")
+const SERVER_PROJECTILE_SCENE := preload("res://scenes/network/network_snowball_projectile.tscn")
+const CLIENT_PROJECTILE_SCENE := preload("res://scenes/network/network_snowball_replica.tscn")
 const MAP01_LAYOUT := preload("res://src/world/glacier_valley_layout.gd")
 
 var state: StringName = &"starting"
 var local_peer_id: int = 0
 var rtt_ms: float = 0.0
 var clock_offset_ms: float = 0.0
+var projectile_prediction_merges: int = 0
+var team_a_score: int = 0
+var team_b_score: int = 0
+var last_network_event: String = ""
+
 var _peer: ENetMultiplayerPeer
 var _players_root: Node3D
+var _projectiles_root: Node3D
 var _roster: Dictionary = {}
+var _server_projectiles: Dictionary = {}
+var _client_projectiles: Dictionary = {}
+var _predicted_projectiles: Dictionary = {}
+var _next_projectile_id: int = 1
 var _ping_elapsed: float = 0.0
 var _smoke_ready_elapsed: float = 0.0
 
@@ -21,6 +33,9 @@ func _ready() -> void:
 	_players_root = Node3D.new()
 	_players_root.name = "Players"
 	add_child(_players_root)
+	_projectiles_root = Node3D.new()
+	_projectiles_root.name = "Projectiles"
+	add_child(_projectiles_root)
 
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -48,11 +63,15 @@ func _exit_tree() -> void:
 func get_debug_snapshot() -> Dictionary:
 	var reconciliation_count := 0
 	var rejected_inputs := 0
+	var inventory := 0
+	var hand_state: StringName = &""
 	var local_player := get_tree().get_first_node_in_group("network_local_player") as NetworkPlayer
 	if local_player != null:
 		var local_snapshot := local_player.get_network_debug_snapshot()
 		reconciliation_count = int(local_snapshot["reconciliations"])
 		rejected_inputs = int(local_snapshot["server_rejected_inputs"])
+		inventory = int(local_snapshot["inventory"])
+		hand_state = local_snapshot["hand_state"]
 	return {
 		"state": state,
 		"peer_id": local_peer_id,
@@ -61,7 +80,57 @@ func get_debug_snapshot() -> Dictionary:
 		"clock_offset_ms": clock_offset_ms,
 		"reconciliations": reconciliation_count,
 		"server_rejected_inputs": rejected_inputs,
+		"inventory": inventory,
+		"hand_state": hand_state,
+		"projectiles": _server_projectiles.size() if App.is_server_runtime() else _client_projectiles.size(),
+		"predicted_projectiles": _predicted_projectiles.size(),
+		"prediction_merges": projectile_prediction_merges,
+		"team_a_score": team_a_score,
+		"team_b_score": team_b_score,
+		"last_event": last_network_event,
 	}
+
+func server_spawn_snowball(owner: NetworkPlayer, normalized_charge: float, input_sequence: int, aim_direction: Vector3) -> void:
+	if not App.is_server_runtime() or owner == null:
+		return
+	var direction := aim_direction.normalized()
+	if direction.is_zero_approx():
+		direction = -owner.global_transform.basis.z.normalized()
+	var chest_origin := owner.global_position + Vector3.UP * 1.30
+	var desired_origin := chest_origin + direction * 0.48
+	var query := PhysicsRayQueryParameters3D.create(chest_origin, desired_origin, 1, owner.get_collision_exclusion_rids())
+	var hit := owner.get_world_3d().direct_space_state.intersect_ray(query)
+	var spawn_position := desired_origin
+	if not hit.is_empty():
+		var point: Vector3 = hit["position"]
+		var normal: Vector3 = hit["normal"]
+		spawn_position = point + normal * (GameConfig.snowball.projectile_radius + 0.02)
+
+	var speed := GameConfig.snowball.charge_to_speed(normalized_charge)
+	var inherited := Vector3(owner.velocity.x, 0.0, owner.velocity.z) * GameConfig.snowball.horizontal_velocity_inheritance
+	var projectile_velocity := direction * speed + inherited
+	var projectile_id := _next_projectile_id
+	_next_projectile_id += 1
+
+	var projectile := SERVER_PROJECTILE_SCENE.instantiate() as NetworkSnowballProjectile
+	projectile.name = "Projectile_%d" % projectile_id
+	_projectiles_root.add_child(projectile)
+	projectile.setup(owner, projectile_id, spawn_position, projectile_velocity)
+	projectile.state_updated.connect(_on_server_projectile_state)
+	projectile.terminal_resolved.connect(_on_server_projectile_terminal)
+	_server_projectiles[projectile_id] = projectile
+	client_spawn_snowball.rpc(projectile_id, owner.network_peer_id, input_sequence, spawn_position, projectile_velocity)
+	print("SNOWDOWN_NETWORK_THROW_ACCEPTED owner=%d projectile=%d input=%d" % [owner.network_peer_id, projectile_id, input_sequence])
+
+func spawn_predicted_throw(input_sequence: int, spawn_position: Vector3, projectile_velocity: Vector3) -> void:
+	if App.is_server_runtime() or _predicted_projectiles.has(input_sequence):
+		return
+	var replica := CLIENT_PROJECTILE_SCENE.instantiate() as NetworkSnowballReplica
+	replica.name = "Predicted_%d" % input_sequence
+	_projectiles_root.add_child(replica)
+	replica.setup_predicted(input_sequence, local_peer_id, spawn_position, projectile_velocity)
+	replica.prediction_expired.connect(_on_prediction_expired)
+	_predicted_projectiles[input_sequence] = replica
 
 func _start_server() -> void:
 	_peer = ENetMultiplayerPeer.new()
@@ -102,6 +171,11 @@ func _on_peer_connected(peer_id: int) -> void:
 		var existing: Dictionary = _roster[existing_peer_id]
 		client_spawn_player.rpc_id(peer_id, int(existing_peer_id), int(existing["team"]), Vector3(existing["position"]), float(existing["yaw"]))
 	client_spawn_player.rpc(peer_id, team, spawn, yaw)
+	client_sync_scores.rpc_id(peer_id, team_a_score, team_b_score)
+	for projectile in _server_projectiles.values():
+		if is_instance_valid(projectile):
+			var snapshot: Dictionary = projectile.get_authoritative_snapshot()
+			client_spawn_snowball.rpc_id(peer_id, int(snapshot["projectile_id"]), int(snapshot["owner_peer_id"]), 0, Vector3(snapshot["position"]), Vector3(snapshot["velocity"]))
 	print("[Snowdown][net] peer joined id=%d team=%d roster=%d" % [peer_id, team, _roster.size()])
 
 func _on_peer_disconnected(peer_id: int) -> void:
@@ -130,6 +204,10 @@ func _on_server_disconnected() -> void:
 	_roster.clear()
 	for child in _players_root.get_children():
 		child.queue_free()
+	for child in _projectiles_root.get_children():
+		child.queue_free()
+	_client_projectiles.clear()
+	_predicted_projectiles.clear()
 	if not App.network_smoke_name.is_empty():
 		get_tree().quit(1)
 
@@ -146,6 +224,50 @@ func client_despawn_player(peer_id: int) -> void:
 		return
 	_roster.erase(peer_id)
 	_despawn_avatar(peer_id)
+
+@rpc("authority", "call_remote", "reliable")
+func client_spawn_snowball(projectile_id: int, owner_peer_id: int, input_sequence: int, spawn_position: Vector3, projectile_velocity: Vector3) -> void:
+	if App.is_server_runtime() or _client_projectiles.has(projectile_id):
+		return
+	var replica: NetworkSnowballReplica
+	if owner_peer_id == local_peer_id and input_sequence > 0 and _predicted_projectiles.has(input_sequence):
+		replica = _predicted_projectiles[input_sequence] as NetworkSnowballReplica
+		_predicted_projectiles.erase(input_sequence)
+		replica.promote_to_authoritative(projectile_id, spawn_position, projectile_velocity)
+		projectile_prediction_merges += 1
+	else:
+		replica = CLIENT_PROJECTILE_SCENE.instantiate() as NetworkSnowballReplica
+		replica.name = "Projectile_%d" % projectile_id
+		_projectiles_root.add_child(replica)
+		replica.setup_authoritative(projectile_id, owner_peer_id, spawn_position, projectile_velocity)
+	_client_projectiles[projectile_id] = replica
+
+@rpc("authority", "call_remote", "unreliable")
+func client_update_snowball(projectile_id: int, position: Vector3, projectile_velocity: Vector3) -> void:
+	if App.is_server_runtime():
+		return
+	var replica := _client_projectiles.get(projectile_id) as NetworkSnowballReplica
+	if replica != null and is_instance_valid(replica):
+		replica.apply_authoritative(position, projectile_velocity)
+
+@rpc("authority", "call_remote", "reliable")
+func client_resolve_snowball(projectile_id: int, kind: StringName, target_peer_id: int, world_position: Vector3, score_a: int, score_b: int) -> void:
+	if App.is_server_runtime():
+		return
+	team_a_score = score_a
+	team_b_score = score_b
+	last_network_event = "%s projectile=%d target=%d at=(%.1f,%.1f,%.1f)" % [kind, projectile_id, target_peer_id, world_position.x, world_position.y, world_position.z]
+	var replica := _client_projectiles.get(projectile_id) as NetworkSnowballReplica
+	if replica != null and is_instance_valid(replica):
+		replica.queue_free()
+	_client_projectiles.erase(projectile_id)
+
+@rpc("authority", "call_remote", "reliable")
+func client_sync_scores(score_a: int, score_b: int) -> void:
+	if App.is_server_runtime():
+		return
+	team_a_score = score_a
+	team_b_score = score_b
 
 @rpc("any_peer", "call_remote", "unreliable")
 func request_ping(client_msec: int) -> void:
@@ -185,9 +307,31 @@ func _count_team_members(team: int) -> int:
 func _spawn_for_team(team: int, slot: int) -> Vector3:
 	var scenario := &"map01_spawn_team_a" if team == 0 else &"map01_spawn_team_b"
 	var spawn := MAP01_LAYOUT.spawn_for(GameConfig.glacier_valley, scenario)
-	var lateral_offsets := [-4.5, -1.5, 1.5, 4.5]
+	var lateral_offsets := [-9.0, -3.0, 3.0, 9.0]
 	spawn.x += float(lateral_offsets[mini(slot, lateral_offsets.size() - 1)])
 	return spawn
+
+func _on_server_projectile_state(projectile_id: int, position: Vector3, projectile_velocity: Vector3) -> void:
+	if App.is_server_runtime():
+		client_update_snowball.rpc(projectile_id, position, projectile_velocity)
+
+func _on_server_projectile_terminal(projectile_id: int, kind: StringName, target_peer_id: int, world_position: Vector3) -> void:
+	if not App.is_server_runtime():
+		return
+	var projectile := _server_projectiles.get(projectile_id) as NetworkSnowballProjectile
+	var owner_peer_id := projectile.owner_peer_id if projectile != null else 0
+	var owner_state: Dictionary = _roster.get(owner_peer_id, {})
+	if not owner_state.is_empty() and (kind == NetworkSnowballProjectile.RESULT_BODY or kind == NetworkSnowballProjectile.RESULT_HEAD):
+		var points := GameConfig.match_rules.head_hit_score if kind == NetworkSnowballProjectile.RESULT_HEAD else GameConfig.match_rules.body_hit_score
+		if int(owner_state["team"]) == 0:
+			team_a_score += points
+		else:
+			team_b_score += points
+	_server_projectiles.erase(projectile_id)
+	client_resolve_snowball.rpc(projectile_id, kind, target_peer_id, world_position, team_a_score, team_b_score)
+
+func _on_prediction_expired(prediction_key: int) -> void:
+	_predicted_projectiles.erase(prediction_key)
 
 func _update_network_smoke(delta: float) -> void:
 	if App.network_smoke_expected_peers <= 0 or App.network_smoke_name.is_empty():
@@ -196,7 +340,11 @@ func _update_network_smoke(delta: float) -> void:
 		_smoke_ready_elapsed = 0.0
 		return
 	_smoke_ready_elapsed += delta
-	if _smoke_ready_elapsed < 0.35:
+	if _smoke_ready_elapsed < 3.0:
 		return
+	if App.network_smoke_action == &"pack_throw" and projectile_prediction_merges < 1:
+		return
+	if App.network_smoke_action == &"pack_throw":
+		print("SNOWDOWN_NETWORK_SNOWBALL_OK name=%s merges=%d" % [App.network_smoke_name, projectile_prediction_merges])
 	print("SNOWDOWN_NETWORK_CLIENT_READY name=%s peer=%d roster=%d rtt_ms=%.1f" % [App.network_smoke_name, local_peer_id, _roster.size(), rtt_ms])
 	get_tree().quit(0)

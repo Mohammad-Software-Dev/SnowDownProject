@@ -12,6 +12,7 @@ var launch_arguments: PackedStringArray = []
 var connect_host: String = ""
 var network_port: int = DEFAULT_NETWORK_PORT
 var network_smoke_name: String = ""
+var network_smoke_action: StringName = &""
 var network_smoke_expected_peers: int = 0
 
 func configure_from_command_line(arguments: PackedStringArray) -> void:
@@ -23,6 +24,7 @@ func configure_from_command_line(arguments: PackedStringArray) -> void:
 	connect_host = String(_read_named_argument(arguments, "--connect", ""))
 	network_port = _read_int_argument(arguments, "--port", DEFAULT_NETWORK_PORT)
 	network_smoke_name = String(_read_named_argument(arguments, "--network-smoke-name", ""))
+	network_smoke_action = _read_named_argument(arguments, "--network-smoke-action", "")
 	network_smoke_expected_peers = _read_int_argument(arguments, "--network-smoke-expected", 0)
 
 	if is_network_runtime() and active_world == StringName(DEFAULT_WORLD) and active_scenario == StringName(DEFAULT_SCENARIO):

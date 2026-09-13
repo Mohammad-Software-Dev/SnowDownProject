@@ -20,7 +20,7 @@ cleanup() {
 trap cleanup EXIT
 
 cd "$ROOT"
-timeout 15s "$GODOT_BIN" --headless --path "$ROOT" -- --server --world=glacier_valley --port="$PORT" >"$SERVER_LOG" 2>&1 &
+timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- --server --world=glacier_valley --port="$PORT" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 for _ in $(seq 1 40); do
@@ -40,10 +40,10 @@ if ! grep -q "SNOWDOWN_NETWORK_SERVER_READY" "$SERVER_LOG"; then
   exit 1
 fi
 
-timeout 12s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=A --network-smoke-expected=2 >"$CLIENT_A_LOG" 2>&1 &
+timeout 15s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=A --network-smoke-expected=2 --network-smoke-action=pack_throw >"$CLIENT_A_LOG" 2>&1 &
 CLIENT_A_PID=$!
 sleep 0.25
-timeout 12s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=B --network-smoke-expected=2 >"$CLIENT_B_LOG" 2>&1 &
+timeout 15s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=B --network-smoke-expected=2 >"$CLIENT_B_LOG" 2>&1 &
 CLIENT_B_PID=$!
 
 STATUS=0
@@ -58,13 +58,16 @@ if [[ "$STATUS" -ne 0 ]]; then
 fi
 
 if [[ $(grep -c "peer joined" "$SERVER_LOG") -lt 2 ]] || \
+   ! grep -q "SNOWDOWN_NETWORK_THROW_ACCEPTED" "$SERVER_LOG" || \
+   ! grep -q "SNOWDOWN_NETWORK_SNOWBALL_OK name=A" "$CLIENT_A_LOG" || \
    ! grep -q "SNOWDOWN_NETWORK_CLIENT_READY name=A.*roster=2" "$CLIENT_A_LOG" || \
    ! grep -q "SNOWDOWN_NETWORK_CLIENT_READY name=B.*roster=2" "$CLIENT_B_LOG"; then
   echo "--- server ---"; cat "$SERVER_LOG"
   echo "--- client A ---"; cat "$CLIENT_A_LOG"
   echo "--- client B ---"; cat "$CLIENT_B_LOG"
-  echo "two-client network assertions failed" >&2
+  echo "two-client authoritative snowball assertions failed" >&2
   exit 1
 fi
 
 echo "SNOWDOWN_TWO_CLIENT_NETWORK_OK"
+echo "SNOWDOWN_AUTHORITATIVE_SNOWBALL_OK"

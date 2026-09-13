@@ -1,11 +1,23 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://src/network/replication/network_player.gd" id="1"]
 [ext_resource type="Script" path="res://src/gameplay/movement/player_movement_component.gd" id="2"]
+[ext_resource type="Script" path="res://src/gameplay/inventory/snowball_inventory_component.gd" id="3"]
+[ext_resource type="Script" path="res://src/gameplay/snowballs/snowball_action_component.gd" id="4"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.42
 height = 1.8
+
+[sub_resource type="CapsuleShape3D" id="BodyHitShape"]
+radius = 0.43
+height = 1.48
+
+[sub_resource type="SphereShape3D" id="HeadHitShape"]
+radius = 0.29
+
+[sub_resource type="SphereShape3D" id="SnowDetectorShape"]
+radius = 1.6
 
 [node name="NetworkPlayer" type="CharacterBody3D"]
 script = ExtResource("1")
@@ -18,7 +30,43 @@ collision_mask = 1
 position = Vector3(0, 0.9, 0)
 shape = SubResource("PlayerShape")
 
+[node name="BodyHitbox" type="Area3D" parent="." groups=["network_target_body"]]
+position = Vector3(0, 0.74, 0)
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+monitorable = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BodyHitbox"]
+shape = SubResource("BodyHitShape")
+
+[node name="HeadHitbox" type="Area3D" parent="." groups=["network_target_head"]]
+position = Vector3(0, 1.56, 0)
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+monitorable = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HeadHitbox"]
+shape = SubResource("HeadHitShape")
+
+[node name="SnowSourceDetector" type="Area3D" parent="."]
+position = Vector3(0, 0.5, 0)
+collision_layer = 0
+collision_mask = 8
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SnowSourceDetector"]
+shape = SubResource("SnowDetectorShape")
+
 [node name="Components" type="Node" parent="."]
 
 [node name="Movement" type="Node" parent="Components"]
 script = ExtResource("2")
+
+[node name="Inventory" type="Node" parent="Components"]
+script = ExtResource("3")
+
+[node name="SnowballAction" type="Node" parent="Components"]
+script = ExtResource("4")
