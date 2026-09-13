@@ -45,6 +45,9 @@ run_godot --headless --path "$ROOT" -s tests/unit/controller_input_test.gd
 echo "== Snowdown: session addressing =="
 run_godot --headless --path "$ROOT" -s tests/unit/session_address_test.gd
 
+echo "== Snowdown: session recovery =="
+run_godot --headless --path "$ROOT" -s tests/unit/session_recovery_test.gd
+
 echo "== Snowdown: session UI =="
 run_godot --headless --path "$ROOT" -s tests/smoke/session_ui_smoke.gd
 
