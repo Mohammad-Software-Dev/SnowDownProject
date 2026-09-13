@@ -17,6 +17,9 @@ echo "== Snowdown: projectile math =="
 echo "== Snowdown: catch validation =="
 "$GODOT_BIN" --headless --path "$ROOT" -s tests/unit/catch_validation_test.gd
 
+echo "== Snowdown: Match flow =="
+"$GODOT_BIN" --headless --path "$ROOT" -s tests/unit/match_flow_test.gd
+
 echo "== Snowdown: Map 01 layout =="
 "$GODOT_BIN" --headless --path "$ROOT" -s tests/unit/map01_layout_test.gd
 
@@ -28,5 +31,8 @@ echo "== Snowdown: boot Glacier Valley =="
 
 echo "== Snowdown: authoritative catch latency matrix =="
 tests/network/latency_matrix.sh
+
+echo "== Snowdown: server-owned match loop =="
+bash tests/network/match_loop_smoke.sh
 
 echo "SNOWDOWN_HEADLESS_VERIFICATION_OK"
