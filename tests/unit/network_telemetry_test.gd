@@ -1,5 +1,9 @@
 extends SceneTree
 
+class FakeTelemetryPlayer:
+	extends Node3D
+	var team_index: int = 0
+
 func _init() -> void:
 	var telemetry := NetworkTelemetry.new()
 	telemetry.reset_for_round(3)
@@ -21,10 +25,10 @@ func _init() -> void:
 	telemetry.note_rejected_inputs(2)
 	telemetry.note_rejected_inputs(1)
 
-	var team_a := NetworkPlayer.new()
+	var team_a := FakeTelemetryPlayer.new()
 	team_a.team_index = 0
 	team_a.position = Vector3(0.0, 1.0, 0.0)
-	var team_b := NetworkPlayer.new()
+	var team_b := FakeTelemetryPlayer.new()
 	team_b.team_index = 1
 	team_b.position = Vector3(0.0, 1.0, 20.0)
 	var players: Array[Node] = [team_a, team_b]
