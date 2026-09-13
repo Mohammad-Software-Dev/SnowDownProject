@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MatchRulesConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/shared/config/match_rules_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+team_size = 4
+regulation_seconds = 360.0
+countdown_seconds = 3.0
+results_seconds = 5.0
+spawn_protection_seconds = 2.0
+body_hit_score = 1
+head_hit_score = 2
+catch_score = 0
+sudden_snow_enabled = true
