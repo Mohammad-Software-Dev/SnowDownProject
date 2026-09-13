@@ -13,15 +13,15 @@ NAMES=(A B C D E F G H)
 
 cleanup() {
   for pid in "${CLIENT_PIDS[@]}"; do
-    if kill -0 "$pid" 2>/dev/null; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
+    if kill -0 "$pid" 2>/dev/null; then kill -KILL "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
   done
-  if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; fi
+  if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then kill -KILL "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; fi
   rm -rf "$TMP"
 }
 trap cleanup EXIT
 
 cd "$ROOT"
-timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- \
+timeout --kill-after=2s 18s "$GODOT_BIN" --headless --path "$ROOT" -- \
   --server --world=glacier_valley --port="$PORT" \
   --network-smoke-layout=scale_4v4 --network-smoke-expected=8 >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
@@ -40,7 +40,7 @@ fi
 for name in "${NAMES[@]}"; do
   log="$TMP/client_${name}.log"
   CLIENT_LOGS+=("$log")
-  timeout 12s "$GODOT_BIN" --headless --path "$ROOT" -- \
+  timeout --kill-after=2s 12s "$GODOT_BIN" --headless --path "$ROOT" -- \
     --connect=127.0.0.1 --port="$PORT" \
     --network-smoke-layout=scale_4v4 \
     --network-smoke-name="$name" --network-smoke-expected=8 \
