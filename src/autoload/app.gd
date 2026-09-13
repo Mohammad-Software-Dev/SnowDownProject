@@ -65,6 +65,16 @@ func configure_for_offline_glacier_valley() -> void:
 	_reset_test_runtime_flags()
 	print("[Snowdown] menu offline practice")
 
+func configure_for_menu() -> void:
+	runtime_role = &"client"
+	active_world = StringName(DEFAULT_WORLD)
+	active_scenario = StringName(DEFAULT_SCENARIO)
+	connect_host = ""
+	network_port = DEFAULT_NETWORK_PORT
+	launch_arguments = PackedStringArray()
+	_reset_test_runtime_flags()
+	print("[Snowdown] returned to interactive session menu")
+
 func is_server_runtime() -> bool:
 	return runtime_role == &"server"
 
