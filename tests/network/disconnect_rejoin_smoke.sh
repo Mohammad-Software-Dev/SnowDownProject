@@ -38,43 +38,48 @@ if ! grep -q "SNOWDOWN_NETWORK_SERVER_READY" "$SERVER_LOG"; then
   exit 1
 fi
 
-# The pack->throw smoke action starts as soon as the network player exists. Server-side
-# peer join is not stdout-buffered, so key the kill window from that event rather than
-# waiting for client log output. 0.55 s is safely inside the configured pack duration.
+# Create exactly one authoritative throw, then terminate its owner while live projectile
+# and player action/session state still exist. This gives the harness a deterministic
+# server-owned marker instead of racing an unobservable charge frame.
 timeout --kill-after=2s 12s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=DROP --network-smoke-expected=1 --network-smoke-action=pack_throw >"$DROP_LOG" 2>&1 &
 DROP_PID=$!
 
-for _ in $(seq 1 50); do
-  if grep -q "peer joined" "$SERVER_LOG"; then break; fi
+for _ in $(seq 1 100); do
+  if grep -q "SNOWDOWN_NETWORK_THROW_ACCEPTED" "$SERVER_LOG"; then break; fi
   if ! kill -0 "$DROP_PID" 2>/dev/null; then
     echo "--- server ---"; cat "$SERVER_LOG"; echo "--- dropped client ---"; cat "$DROP_LOG"; exit 1
   fi
+  if ! kill -0 "$SERVER_PID" 2>/dev/null; then cat "$SERVER_LOG"; exit 1; fi
   sleep 0.05
 done
-if ! grep -q "peer joined" "$SERVER_LOG"; then
+if ! grep -q "SNOWDOWN_NETWORK_THROW_ACCEPTED" "$SERVER_LOG"; then
   echo "--- server ---"; cat "$SERVER_LOG"; echo "--- dropped client ---"; cat "$DROP_LOG"
-  echo "disconnect test client never joined" >&2
+  echo "disconnect test never reached an accepted authoritative throw" >&2
   exit 1
 fi
 
-sleep 0.55
 kill -KILL "$DROP_PID" 2>/dev/null || true
 wait "$DROP_PID" 2>/dev/null || true
 DROP_PID=""
 
-for _ in $(seq 1 40); do
+for _ in $(seq 1 50); do
   if grep -q "peer left .*roster=0" "$SERVER_LOG"; then break; fi
   if ! kill -0 "$SERVER_PID" 2>/dev/null; then cat "$SERVER_LOG"; exit 1; fi
   sleep 0.1
 done
 if ! grep -q "peer left .*roster=0" "$SERVER_LOG"; then
   echo "--- server ---"; cat "$SERVER_LOG"
-  echo "server did not clean disconnected in-progress player" >&2
+  echo "server did not clean disconnected projectile owner" >&2
   exit 1
 fi
-if grep -q "SNOWDOWN_NETWORK_THROW_ACCEPTED" "$SERVER_LOG"; then
+if [[ $(grep -c "SNOWDOWN_NETWORK_THROW_ACCEPTED" "$SERVER_LOG") -ne 1 ]]; then
   echo "--- server ---"; cat "$SERVER_LOG"
-  echo "disconnecting inside the pack window unexpectedly completed a throw" >&2
+  echo "disconnect path produced duplicate authoritative throws" >&2
+  exit 1
+fi
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+  echo "--- server ---"; cat "$SERVER_LOG"
+  echo "authoritative server died after client disconnect" >&2
   exit 1
 fi
 
