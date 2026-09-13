@@ -1,6 +1,7 @@
 class_name PrototypeHud
 extends CanvasLayer
 
+@onready var reaction_flash: ColorRect = $ReactionFlash
 @onready var crosshair_label: Label = $Crosshair
 @onready var score_label: Label = $Score
 @onready var phase_label: Label = $Phase
@@ -10,10 +11,21 @@ extends CanvasLayer
 @onready var protection_label: Label = $Protection
 @onready var charge_bar: ProgressBar = $Charge
 
-func _process(_delta: float) -> void:
+var _last_network_event: String = ""
+var _network_feedback_text: String = ""
+var _event_feedback_remaining: float = 0.0
+var _reaction_remaining: float = 0.0
+var _reaction_duration: float = 0.0
+
+func _process(delta: float) -> void:
+	_event_feedback_remaining = maxf(0.0, _event_feedback_remaining - delta)
+	_reaction_remaining = maxf(0.0, _reaction_remaining - delta)
+	_update_reaction_flash()
+
 	var gameplay_world := get_tree().get_first_node_in_group("prototype_gameplay_world")
 	var player := get_tree().get_first_node_in_group("local_player") as SnowdownPlayer
 	if player != null:
+		reaction_flash.visible = false
 		phase_label.visible = false
 		connection_label.visible = false
 		protection_label.visible = false
@@ -34,6 +46,7 @@ func _process(_delta: float) -> void:
 
 	var network_session := get_tree().get_first_node_in_group("network_session") as NetworkSession
 	if network_session == null:
+		reaction_flash.visible = false
 		return
 
 	phase_label.visible = true
@@ -45,6 +58,7 @@ func _process(_delta: float) -> void:
 	var roster := int(net["roster"])
 	var expected_players := GameConfig.match_rules.team_size * 2
 	var spawn_protection := float(net["spawn_protection"])
+	var local_peer_id := int(net["peer_id"])
 
 	score_label.text = "TEAM A  %d     %d  TEAM B" % [net["team_a_score"], net["team_b_score"]]
 	phase_label.text = _phase_text(phase, time_remaining, winner_team, roster, expected_players)
@@ -59,7 +73,8 @@ func _process(_delta: float) -> void:
 		GameConfig.snowball.inventory_capacity,
 		String(net["hand_state"]).replace("_", " ").to_upper(),
 	]
-	feedback_label.text = String(net["last_event"])
+	_present_network_event(String(net["last_event"]), local_peer_id)
+	feedback_label.text = _network_feedback_text if _event_feedback_remaining > 0.0 else ""
 	protection_label.visible = spawn_protection > 0.01
 	protection_label.text = "SPAWN PROTECTION  %.1fs" % spawn_protection
 	crosshair_label.visible = phase == MatchFlow.PHASE_ACTIVE or phase == MatchFlow.PHASE_SUDDEN_SNOW
@@ -69,6 +84,28 @@ func _process(_delta: float) -> void:
 		feedback_label.text = "CONNECTION FAILED"
 	elif StringName(net["state"]) == &"server_disconnected":
 		feedback_label.text = "SERVER DISCONNECTED"
+
+func _present_network_event(event_text: String, local_peer_id: int) -> void:
+	if event_text == _last_network_event:
+		return
+	_last_network_event = event_text
+	var profile := SnowballPresentation.feedback_for_event(event_text, local_peer_id)
+	_network_feedback_text = String(profile["text"])
+	if _network_feedback_text.is_empty():
+		_event_feedback_remaining = 0.0
+	else:
+		_event_feedback_remaining = 1.0 + float(int(profile["emphasis"])) * 0.18
+	if bool(profile["local_reaction"]):
+		_reaction_duration = 0.16 + float(int(profile["emphasis"])) * 0.045
+		_reaction_remaining = _reaction_duration
+
+func _update_reaction_flash() -> void:
+	if _reaction_remaining <= 0.0 or _reaction_duration <= 0.0:
+		reaction_flash.visible = false
+		return
+	var normalized := clampf(_reaction_remaining / _reaction_duration, 0.0, 1.0)
+	reaction_flash.visible = true
+	reaction_flash.color = Color(0.72, 0.9, 1.0, 0.04 + normalized * 0.10)
 
 func _phase_text(phase: StringName, time_remaining: float, winner_team: int, roster: int, expected_players: int) -> String:
 	match phase:
