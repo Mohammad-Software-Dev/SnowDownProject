@@ -29,8 +29,8 @@ func _ready() -> void:
 	_build_scenario_marker()
 	_apply_scenario(App.active_scenario)
 	if not App.is_server_runtime():
-		_spawn_practice_targets()
 		if not App.is_network_runtime():
+			_spawn_practice_targets()
 			_spawn_local_player()
 		_spawn_dummy_layout_if_requested()
 	print("[Snowdown] Glacier Valley graybox ready. scenario=%s spawn=%s" % [App.active_scenario, _spawn_marker.global_position])
@@ -185,7 +185,7 @@ func _build_scenario_marker() -> void:
 	_spawn_marker = Marker3D.new()
 	_spawn_marker.name = "ScenarioSpawn"
 	add_child(_spawn_marker)
-	if not App.is_server_runtime():
+	if not App.is_server_runtime() and App.has_explicit_launch_arguments():
 		_scenario_label = Label3D.new()
 		_scenario_label.position = Vector3(0.0, 2.4, 0.0)
 		_scenario_label.billboard = 1
