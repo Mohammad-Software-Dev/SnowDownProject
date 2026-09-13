@@ -21,7 +21,7 @@ The intended blend is:
 
 Reference modern snow-world games for lessons in material response, terrain layering, contact with snow, winter atmosphere, visibility, and believable structures. Reference cinematic glacial animation for scale, silhouette readability, cave drama, and memorable frozen landmarks.
 
-References are directional only. Do not recreate a recognizable Ice Age formation, film shot, game location, prop design, character costume, logo, or composition. Snowdown must remain original.
+References are directional only. Do not recreate a recognizable Ice Age formation, film shot, game location, prop design, character costume, logo, or composition. Snowdown must remain original. No external reference can override Snowdown's locked gameplay readability, human-scale competitive spaces, or original Glacier Valley identity.
 
 ## Realism hierarchy
 
