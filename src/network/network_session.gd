@@ -29,6 +29,7 @@ var _predicted_projectiles: Dictionary = {}
 var _next_projectile_id: int = 1
 var _ping_elapsed: float = 0.0
 var _smoke_ready_elapsed: float = 0.0
+var _smoke_roster_latched: bool = false
 
 func _ready() -> void:
 	add_to_group("network_session")
@@ -373,9 +374,11 @@ func _on_prediction_expired(prediction_key: int) -> void:
 func _update_network_smoke(delta: float) -> void:
 	if App.network_smoke_expected_peers <= 0 or App.network_smoke_name.is_empty(): return
 	if App.network_smoke_action == &"match_observe": return
-	if _roster.size() < App.network_smoke_expected_peers:
+	if not _smoke_roster_latched:
+		if _roster.size() < App.network_smoke_expected_peers:
+			return
+		_smoke_roster_latched = true
 		_smoke_ready_elapsed = 0.0
-		return
 	_smoke_ready_elapsed += delta
 	if _smoke_ready_elapsed < 4.5: return
 	var local_player := get_tree().get_first_node_in_group("network_local_player") as NetworkPlayer
