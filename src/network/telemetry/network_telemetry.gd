@@ -37,7 +37,10 @@ func reset_for_round(new_round_number: int) -> void:
 func note_roster(roster: Dictionary) -> void:
 	var count_a := 0
 	var count_b := 0
-	for state_data in roster.values():
+	for raw_state in roster.values():
+		var state_data := raw_state as Dictionary
+		if state_data == null:
+			continue
 		if int(state_data.get("team", -1)) == 0:
 			count_a += 1
 		elif int(state_data.get("team", -1)) == 1:
@@ -67,18 +70,22 @@ func sample_players(players: Array[Node]) -> void:
 		return
 	position_samples += 1
 	for node in players:
-		var player := node as NetworkPlayer
-		if player == null:
+		var player_node := node as Node3D
+		if player_node == null:
 			continue
-		var z := player.global_position.z
+		var raw_team := player_node.get("team_index")
+		if raw_team == null:
+			continue
+		var team := int(raw_team)
+		var z := player_node.global_position.z
 		if absf(z) <= CENTER_HALF_LENGTH:
-			if player.team_index == 0:
+			if team == 0:
 				team_a_center_samples += 1
-			else:
+			elif team == 1:
 				team_b_center_samples += 1
-		elif player.team_index == 0 and z < -CENTER_HALF_LENGTH:
+		elif team == 0 and z < -CENTER_HALF_LENGTH:
 			team_a_enemy_half_samples += 1
-		elif player.team_index == 1 and z > CENTER_HALF_LENGTH:
+		elif team == 1 and z > CENTER_HALF_LENGTH:
 			team_b_enemy_half_samples += 1
 
 func get_snapshot() -> Dictionary:
