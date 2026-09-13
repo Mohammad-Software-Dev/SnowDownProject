@@ -16,6 +16,17 @@ func _run() -> void:
 	menu.show_status("READY")
 	_assert_equal(menu.status_label.text, "READY", "menu status")
 
+	menu.show_standard("", "192.0.2.10:7000")
+	_assert_equal(menu.address_edit.text, "192.0.2.10:7000", "standard mode can preserve retry endpoint")
+	menu.show_recovery("CONNECTION LOST", "Server disconnected.", "RETRY CONNECTION", true)
+	_assert_true(not menu.normal_controls.visible and menu.recovery_controls.visible, "recovery mode replaces normal controls")
+	_assert_equal(menu.recovery_title.text, "CONNECTION LOST", "recovery title")
+	_assert_equal(menu.retry_button.text, "RETRY CONNECTION", "recovery retry label")
+	_assert_true(not menu.retry_button.disabled, "retry remains actionable")
+	menu.show_standard("READY AGAIN")
+	_assert_true(menu.normal_controls.visible and not menu.recovery_controls.visible, "return restores normal controls")
+	_assert_equal(menu.status_label.text, "READY AGAIN", "return status")
+
 	menu.queue_free()
 	await process_frame
 	print("SNOWDOWN_SESSION_UI_OK")
