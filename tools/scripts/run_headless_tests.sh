@@ -17,7 +17,13 @@ echo "== Snowdown: projectile math =="
 echo "== Snowdown: catch validation =="
 "$GODOT_BIN" --headless --path "$ROOT" -s tests/unit/catch_validation_test.gd
 
-echo "== Snowdown: boot main scene =="
+echo "== Snowdown: Map 01 layout =="
+"$GODOT_BIN" --headless --path "$ROOT" -s tests/unit/map01_layout_test.gd
+
+echo "== Snowdown: boot TestArena =="
 "$GODOT_BIN" --headless --path "$ROOT" --quit-after 3 -- --scenario=test_arena_origin
+
+echo "== Snowdown: boot Glacier Valley =="
+"$GODOT_BIN" --headless --path "$ROOT" --quit-after 3 -- --scenario=map01_center_arch
 
 echo "SNOWDOWN_HEADLESS_VERIFICATION_OK"

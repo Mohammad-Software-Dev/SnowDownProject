@@ -22,11 +22,14 @@ func _initialize() -> void:
 	var movement := load("res://data/balance/player_movement.tres") as PlayerMovementConfig
 	var snowball := load("res://data/balance/snowball.tres") as SnowballConfig
 	var match_rules := load("res://data/balance/match_rules.tres") as MatchRulesConfig
+	var glacier_valley := load("res://data/maps/glacier_valley.tres") as GlacierValleyConfig
 
 	if movement == null:
 		failures.append("player movement config failed to load")
 	elif movement.sprint_speed <= movement.walk_speed:
 		failures.append("sprint speed must exceed walk speed")
+	elif movement.ice_ground_speed_multiplier < 1.0 or movement.ice_slide_friction_multiplier <= 0.0:
+		failures.append("fast-ice movement modifiers are invalid")
 
 	if snowball == null:
 		failures.append("snowball config failed to load")
@@ -38,12 +41,15 @@ func _initialize() -> void:
 	elif match_rules.team_size != 4:
 		failures.append("locked vertical-slice team size must be 4")
 
+	if glacier_valley == null:
+		failures.append("Glacier Valley config failed to load")
+
 	for action in REQUIRED_ACTIONS:
 		if not InputMap.has_action(action):
 			failures.append("missing InputMap action: %s" % action)
 
 	if failures.is_empty():
-		print("SNOWDOWN_SMOKE_OK configs=3 actions=%d" % REQUIRED_ACTIONS.size())
+		print("SNOWDOWN_SMOKE_OK configs=4 actions=%d" % REQUIRED_ACTIONS.size())
 		quit(0)
 		return
 

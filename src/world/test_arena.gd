@@ -16,6 +16,7 @@ var _fixture_projectile_id: int = 100000
 
 func _ready() -> void:
 	add_to_group("test_arena")
+	add_to_group("prototype_gameplay_world")
 	_apply_scenario_marker(App.active_scenario)
 	if not App.is_server_runtime():
 		_spawn_local_player()
@@ -42,6 +43,9 @@ func reset_active_scenario() -> void:
 	if local_player != null:
 		local_player.teleport_to(spawn_marker.global_position)
 	_spawn_scenario_fixture()
+
+func get_world_debug_snapshot() -> Dictionary:
+	return {"name": "TestArena", "nearest_snow_distance": -1.0}
 
 func _spawn_local_player() -> void:
 	local_player = PLAYER_SCENE.instantiate() as SnowdownPlayer

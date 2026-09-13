@@ -5,8 +5,12 @@ const STATE_GROUNDED := &"grounded"
 const STATE_AIRBORNE := &"airborne"
 const STATE_CROUCHED := &"crouched"
 const STATE_SLIDING := &"sliding"
+const SURFACE_SNOW := &"snow"
+const SURFACE_ICE := &"ice"
+const SURFACE_AIR := &"air"
 
 var locomotion_state: StringName = STATE_AIRBORNE
+var current_surface: StringName = SURFACE_AIR
 var _body: CharacterBody3D
 var _coyote_remaining: float = 0.0
 var _jump_buffer_remaining: float = 0.0
@@ -33,6 +37,7 @@ func simulate(command: PlayerInputCommand, delta: float, speed_multiplier: float
 	_try_jump(config)
 	_apply_gravity(delta, config)
 	_body.move_and_slide()
+	_update_surface_state()
 	_update_locomotion_state(command)
 
 func reset() -> void:
@@ -41,6 +46,7 @@ func reset() -> void:
 	_slide_remaining = 0.0
 	_slide_direction = Vector3.ZERO
 	_sliding = false
+	current_surface = SURFACE_AIR
 	locomotion_state = STATE_AIRBORNE
 
 func is_sliding() -> bool:
@@ -78,8 +84,11 @@ func _begin_slide(config: PlayerMovementConfig) -> void:
 
 func _simulate_slide(delta: float, config: PlayerMovementConfig) -> void:
 	_slide_remaining = maxf(0.0, _slide_remaining - delta)
+	var friction := config.slide_friction
+	if current_surface == SURFACE_ICE:
+		friction *= config.ice_slide_friction_multiplier
 	var speed := horizontal_speed()
-	speed = move_toward(speed, 0.0, config.slide_friction * delta)
+	speed = move_toward(speed, 0.0, friction * delta)
 	_body.velocity.x = _slide_direction.x * speed
 	_body.velocity.z = _slide_direction.z * speed
 
@@ -98,6 +107,8 @@ func _simulate_standard_movement(command: PlayerInputCommand, delta: float, conf
 	elif command.sprint_held:
 		target_speed = config.sprint_speed
 
+	if _body.is_on_floor() and current_surface == SURFACE_ICE:
+		target_speed *= config.ice_ground_speed_multiplier
 	if not _body.is_on_floor():
 		target_speed = minf(target_speed, config.air_speed_cap)
 	target_speed *= clampf(speed_multiplier, 0.0, 1.0)
@@ -123,6 +134,20 @@ func _apply_gravity(delta: float, config: PlayerMovementConfig) -> void:
 		_body.velocity.y -= config.gravity * delta
 	elif _body.velocity.y < 0.0:
 		_body.velocity.y = 0.0
+
+func _update_surface_state() -> void:
+	if not _body.is_on_floor():
+		current_surface = SURFACE_AIR
+		return
+	current_surface = SURFACE_SNOW
+	for index in range(_body.get_slide_collision_count()):
+		var collision := _body.get_slide_collision(index)
+		if collision.get_normal().dot(_body.up_direction) < 0.65:
+			continue
+		var collider := collision.get_collider() as Node
+		if collider != null and collider.is_in_group("fast_surface"):
+			current_surface = SURFACE_ICE
+			return
 
 func _update_locomotion_state(command: PlayerInputCommand) -> void:
 	if _sliding:

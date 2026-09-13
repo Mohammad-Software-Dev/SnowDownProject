@@ -46,12 +46,18 @@ func teleport_to(world_position: Vector3) -> void:
 	snowball_action.reset()
 	inventory.reset(0)
 
+func orient_to_yaw_degrees(yaw_degrees: float) -> void:
+	rotation.y = deg_to_rad(yaw_degrees)
+	_pitch_radians = 0.0
+	camera_pivot.rotation.x = 0.0
+
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"position": global_position,
 		"velocity": velocity,
 		"speed": movement.horizontal_speed(),
 		"locomotion": movement.locomotion_state,
+		"surface": movement.current_surface,
 		"on_floor": is_on_floor(),
 		"inventory": inventory.current,
 		"inventory_capacity": inventory.capacity(),

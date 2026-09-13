@@ -1,9 +1,11 @@
 extends Node
 
 const DEFAULT_SCENARIO := "test_arena_origin"
+const DEFAULT_WORLD := "test_arena"
 const INPUT_DEFAULTS := preload("res://src/bootstrap/input_defaults.gd")
 
 var runtime_role: StringName = &"client"
+var active_world: StringName = DEFAULT_WORLD
 var active_scenario: StringName = DEFAULT_SCENARIO
 var launch_arguments: PackedStringArray = []
 
@@ -11,8 +13,15 @@ func configure_from_command_line(arguments: PackedStringArray) -> void:
 	INPUT_DEFAULTS.install_if_missing()
 	launch_arguments = arguments
 	runtime_role = &"server" if arguments.has("--server") else &"client"
+	active_world = _read_named_argument(arguments, "--world", DEFAULT_WORLD)
 	active_scenario = _read_named_argument(arguments, "--scenario", DEFAULT_SCENARIO)
-	print("[Snowdown] role=%s scenario=%s" % [runtime_role, active_scenario])
+
+	if String(active_scenario).begins_with("map01_"):
+		active_world = &"glacier_valley"
+	elif active_world == &"glacier_valley" and active_scenario == StringName(DEFAULT_SCENARIO):
+		active_scenario = &"map01_spawn_team_a"
+
+	print("[Snowdown] role=%s world=%s scenario=%s" % [runtime_role, active_world, active_scenario])
 
 func is_server_runtime() -> bool:
 	return runtime_role == &"server"

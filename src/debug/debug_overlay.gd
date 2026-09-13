@@ -16,13 +16,18 @@ func _process(_delta: float) -> void:
 	var lines: Array[String] = [
 		"Snowdown DEV",
 		"role: %s" % App.runtime_role,
+		"world: %s" % App.active_world,
 		"scenario: %s" % App.active_scenario,
 		"fps: %d" % Engine.get_frames_per_second(),
 	]
 
-	var arena := get_tree().get_first_node_in_group("test_arena") as TestArena
-	if arena != null:
-		lines.append("practice score: %d" % arena.practice_score)
+	var gameplay_world := get_tree().get_first_node_in_group("prototype_gameplay_world")
+	if gameplay_world != null:
+		lines.append("practice score: %d" % int(gameplay_world.get("practice_score")))
+		if gameplay_world.has_method("get_world_debug_snapshot"):
+			var world_snapshot: Dictionary = gameplay_world.call("get_world_debug_snapshot")
+			if world_snapshot.has("nearest_snow_distance") and float(world_snapshot["nearest_snow_distance"]) >= 0.0:
+				lines.append("nearest snow: %.1f m" % float(world_snapshot["nearest_snow_distance"]))
 
 	var player := get_tree().get_first_node_in_group("local_player") as SnowdownPlayer
 	if player != null:
@@ -31,6 +36,7 @@ func _process(_delta: float) -> void:
 		var position: Vector3 = snapshot["position"]
 		lines.append("")
 		lines.append("locomotion: %s" % snapshot["locomotion"])
+		lines.append("surface: %s" % snapshot["surface"])
 		lines.append("hand state: %s" % snapshot["hand_state"])
 		lines.append("inventory: %d/%d" % [snapshot["inventory"], snapshot["inventory_capacity"]])
 		lines.append("pack: %.0f%%  charge: %.0f%%" % [float(snapshot["pack_progress"]) / GameConfig.snowball.pack_duration_seconds * 100.0, float(snapshot["charge"]) * 100.0])

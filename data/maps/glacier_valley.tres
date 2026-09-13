@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="GlacierValleyConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/shared/config/glacier_valley_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+playable_half_width = 42.0
+playable_half_length = 60.0
+high_shelf_height = 12.0
+out_of_bounds_floor_y = -4.0
+team_spawn_inset = 9.0
+cave_center_x = -31.0
+high_shelf_center_x = 29.0
+river_half_width = 7.0
+cave_half_width = 8.0
+cave_half_length = 30.0
+shelf_half_width = 8.0
+shelf_half_length = 17.0

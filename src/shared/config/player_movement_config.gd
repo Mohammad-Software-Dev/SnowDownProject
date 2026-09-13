@@ -23,6 +23,10 @@ extends Resource
 @export var slide_friction: float = 5.0
 @export var slide_max_seconds: float = 1.15
 
+@export_category("Fast Ice Surface")
+@export var ice_ground_speed_multiplier: float = 1.08
+@export var ice_slide_friction_multiplier: float = 0.45
+
 @export_category("Camera")
 @export var mouse_sensitivity: float = 0.0018
 @export var pitch_min_degrees: float = -85.0
