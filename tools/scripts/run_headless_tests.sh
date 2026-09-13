@@ -27,6 +27,12 @@ run_godot --headless --path "$ROOT" -s tests/unit/match_flow_test.gd
 echo "== Snowdown: network telemetry =="
 run_godot --headless --path "$ROOT" -s tests/unit/network_telemetry_test.gd
 
+echo "== Snowdown: session addressing =="
+run_godot --headless --path "$ROOT" -s tests/unit/session_address_test.gd
+
+echo "== Snowdown: session UI =="
+run_godot --headless --path "$ROOT" -s tests/smoke/session_ui_smoke.gd
+
 echo "== Snowdown: Map 01 layout =="
 run_godot --headless --path "$ROOT" -s tests/unit/map01_layout_test.gd
 
