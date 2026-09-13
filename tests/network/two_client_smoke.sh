@@ -54,10 +54,14 @@ if [[ $(grep -c "peer joined" "$SERVER_LOG") -lt 2 ]] || \
    ! grep -q "SNOWDOWN_NETWORK_SNOWBALL_OK name=A" "$CLIENT_A_LOG" || \
    ! grep -q "SNOWDOWN_NETWORK_CATCH_OK name=B" "$CLIENT_B_LOG" || \
    ! grep -q "SNOWDOWN_NETWORK_CATCH_OK name=B.*score_a=0 score_b=0" "$CLIENT_B_LOG" || \
-   ! grep -q "SNOWDOWN_NETWORK_CLIENT_READY name=A.*roster=2" "$CLIENT_A_LOG" || \
-   ! grep -q "SNOWDOWN_NETWORK_CLIENT_READY name=B.*roster=2" "$CLIENT_B_LOG"; then
+   ! grep -q "SNOWDOWN_NETWORK_CLIENT_READY name=A" "$CLIENT_A_LOG" || \
+   ! grep -q "SNOWDOWN_NETWORK_CLIENT_READY name=B" "$CLIENT_B_LOG"; then
   echo "--- server ---"; cat "$SERVER_LOG"; echo "--- client A ---"; cat "$CLIENT_A_LOG"; echo "--- client B ---"; cat "$CLIENT_B_LOG"; echo "two-client catch/authority assertions failed" >&2; exit 1
 fi
+
+# CLIENT_READY is emitted only after each client has latched the expected two-peer roster.
+# The other client may disconnect immediately after its own success marker, so the live
+# roster printed on the final line is intentionally not asserted.
 
 # Normal local conditions must prove prediction -> authority promotion. Under simulated
 # latency/loss an authoritative-only fallback is legal when inventory confirmation arrives
