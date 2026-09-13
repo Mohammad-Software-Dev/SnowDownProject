@@ -13,6 +13,7 @@ var local_peer_id: int = 0
 var rtt_ms: float = 0.0
 var clock_offset_ms: float = 0.0
 var projectile_prediction_merges: int = 0
+var local_authoritative_projectiles_seen: int = 0
 var team_a_score: int = 0
 var team_b_score: int = 0
 var last_network_event: String = ""
@@ -89,7 +90,8 @@ func get_debug_snapshot() -> Dictionary:
 		"state": state, "peer_id": local_peer_id, "roster": _roster.size(), "rtt_ms": rtt_ms, "clock_offset_ms": clock_offset_ms,
 		"reconciliations": reconciliation_count, "server_rejected_inputs": rejected_inputs, "inventory": inventory, "hand_state": hand_state,
 		"projectiles": _server_projectiles.size() if App.is_server_runtime() else _client_projectiles.size(), "predicted_projectiles": _predicted_projectiles.size(),
-		"prediction_merges": projectile_prediction_merges, "team_a_score": team_a_score, "team_b_score": team_b_score, "last_event": last_network_event,
+		"prediction_merges": projectile_prediction_merges, "local_authoritative_projectiles_seen": local_authoritative_projectiles_seen,
+		"team_a_score": team_a_score, "team_b_score": team_b_score, "last_event": last_network_event,
 		"catch_rewind_ms": catch_rewind_ms, "catch_succeeded": catch_succeeded, "spawn_protection": spawn_protection,
 		"match_phase": match_snapshot.get("phase", &"waiting"), "match_time_remaining": match_snapshot.get("time_remaining", 0.0),
 		"match_round": match_snapshot.get("round_number", 0), "match_winner_team": match_snapshot.get("winner_team", -1),
@@ -264,6 +266,7 @@ func client_spawn_snowball(projectile_id: int, owner_peer_id: int, input_sequenc
 	if App.is_server_runtime() or _client_projectiles.has(projectile_id): return
 	var replica: NetworkSnowballReplica = null
 	if owner_peer_id == local_peer_id:
+		local_authoritative_projectiles_seen += 1
 		var prediction_key := input_sequence
 		if not _predicted_projectiles.has(prediction_key) and _predicted_projectiles.size() == 1:
 			prediction_key = int(_predicted_projectiles.keys()[0])
@@ -376,9 +379,9 @@ func _update_network_smoke(delta: float) -> void:
 	_smoke_ready_elapsed += delta
 	if _smoke_ready_elapsed < 4.5: return
 	var local_player := get_tree().get_first_node_in_group("network_local_player") as NetworkPlayer
-	if App.network_smoke_action == &"pack_throw" and projectile_prediction_merges < 1: return
+	if App.network_smoke_action == &"pack_throw" and local_authoritative_projectiles_seen < 1: return
 	if App.network_smoke_action == &"catch" and (local_player == null or not bool(local_player.get_network_debug_snapshot()["last_catch_succeeded"])): return
-	if App.network_smoke_action == &"pack_throw": print("SNOWDOWN_NETWORK_SNOWBALL_OK name=%s merges=%d" % [App.network_smoke_name, projectile_prediction_merges])
+	if App.network_smoke_action == &"pack_throw": print("SNOWDOWN_NETWORK_SNOWBALL_OK name=%s authoritative_seen=%d merges=%d" % [App.network_smoke_name, local_authoritative_projectiles_seen, projectile_prediction_merges])
 	if App.network_smoke_action == &"catch":
 		var snapshot := local_player.get_network_debug_snapshot()
 		print("SNOWDOWN_NETWORK_CATCH_OK name=%s rewind_ms=%.1f score_a=%d score_b=%d" % [App.network_smoke_name, snapshot["last_catch_rewind_ms"], team_a_score, team_b_score])
