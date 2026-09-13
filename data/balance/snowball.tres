@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="SnowballConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/shared/config/snowball_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+inventory_capacity = 3
+pack_duration_seconds = 0.85
+pack_movement_multiplier = 0.55
+minimum_release_seconds = 0.08
+normal_charge_seconds = 0.65
+maximum_charge_seconds = 1.25
+minimum_launch_speed = 14.0
+maximum_launch_speed = 26.0
+gravity_scale = 1.0
+drag = 0.0
+projectile_radius = 0.1
+projectile_lifetime_seconds = 5.0
+horizontal_velocity_inheritance = 0.75
+catch_active_seconds = 0.18
+catch_recovery_seconds = 0.32
+catch_half_angle_degrees = 55.0
+catch_range = 1.35
