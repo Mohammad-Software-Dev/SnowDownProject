@@ -16,10 +16,10 @@ func _init() -> void:
 	_assert_true(_has_button(&"scoreboard", JOY_BUTTON_BACK), "view/back opens scoreboard")
 	_assert_true(_has_button(&"pause", JOY_BUTTON_START), "menu/start opens pause")
 
-	_assert_equal(ControllerLookBridge.shape_stick(Vector2(0.05, 0.05), 0.18), Vector2.ZERO, "right stick deadzone")
-	var full := ControllerLookBridge.shape_stick(Vector2(1.0, 0.0), 0.18)
+	_assert_equal(ControllerInputMath.shape_stick(Vector2(0.05, 0.05), 0.18), Vector2.ZERO, "right stick deadzone")
+	var full := ControllerInputMath.shape_stick(Vector2(1.0, 0.0), 0.18)
 	_assert_true(full.x > 0.99 and absf(full.y) < 0.001, "right stick preserves full deflection")
-	var medium := ControllerLookBridge.shape_stick(Vector2(0.55, 0.0), 0.18)
+	var medium := ControllerInputMath.shape_stick(Vector2(0.55, 0.0), 0.18)
 	_assert_true(medium.x > 0.0 and medium.x < 0.55, "right stick response is smoothly shaped")
 
 	var config := PlayerMovementConfig.new()
