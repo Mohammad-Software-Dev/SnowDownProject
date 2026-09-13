@@ -3,6 +3,7 @@ extends Node3D
 
 signal terminal_resolved(kind: StringName, collider: Node, world_position: Vector3)
 
+const RESULT_CAUGHT := &"caught"
 const RESULT_HEAD := &"head_hit"
 const RESULT_BODY := &"body_hit"
 const RESULT_WORLD := &"world_impact"
@@ -36,20 +37,26 @@ func _physics_process(delta: float) -> void:
 		_finish(RESULT_WORLD, null, global_position)
 		return
 
-	var next_velocity := _integrate_velocity(velocity, delta)
-	var displacement := (velocity + next_velocity) * 0.5 * delta
+	var step := SnowballMath.simulate_step(
+		global_position,
+		velocity,
+		delta,
+		GameConfig.player_movement.gravity,
+		GameConfig.snowball.gravity_scale,
+		GameConfig.snowball.drag
+	)
+	var next_position: Vector3 = step["position"]
+	var displacement := next_position - global_position
 	if _sweep_and_resolve(displacement):
 		return
-	global_position += displacement
-	velocity = next_velocity
+	global_position = next_position
+	velocity = step["velocity"]
 
-func _integrate_velocity(current_velocity: Vector3, delta: float) -> Vector3:
-	var next_velocity := current_velocity
-	next_velocity.y -= GameConfig.player_movement.gravity * GameConfig.snowball.gravity_scale * delta
-	var drag := GameConfig.snowball.drag
-	if drag > 0.0:
-		next_velocity *= maxf(0.0, 1.0 - drag * delta)
-	return next_velocity
+func try_catch(catcher: Node) -> bool:
+	if not active:
+		return false
+	_finish(RESULT_CAUGHT, catcher, global_position)
+	return true
 
 func _sweep_and_resolve(displacement: Vector3) -> bool:
 	if displacement.is_zero_approx():

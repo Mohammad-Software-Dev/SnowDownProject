@@ -6,19 +6,14 @@ The implementation follows the locked design and technical documents in `docs/`.
 
 ## Current development state
 
-**Iteration 1 / M0 — Project Foundation**
+The active development PR currently contains the first four implementation iterations:
 
-Implemented foundation:
-- Godot project bootstrap;
-- canonical InputMap actions;
-- typed, data-driven gameplay configuration Resources;
-- graybox `TestArena`;
-- deterministic debug scenario markers;
-- development debug overlay;
-- headless smoke-test entry point;
-- Git/Git-LFS repository hygiene.
+1. **M0 foundation** — project bootstrap, InputMap, typed balance Resources, TestArena, deterministic scenarios, debug overlay.
+2. **Offline locomotion** — first-person look, walk/sprint/jump/crouch/slide, coyote time and jump buffering.
+3. **Core snowball toy** — packable snow, 3-ball inventory, charge/release throws, visible arc projectile, swept collision, body/head scoring.
+4. **Catch baseline** — active-only frontal catch validation, catch interruption/recovery, caught-ball inventory recovery, deterministic catch fixture, shared projectile math tests.
 
-No production art, networking, progression, matchmaking, monetization, or backend systems are on the critical path yet.
+No production art, authoritative networking, progression, matchmaking, monetization, or backend systems are on the critical path yet.
 
 ## Run
 
@@ -35,24 +30,35 @@ Useful launch arguments:
 --scenario=catch_lane
 ```
 
+The `catch_lane` scenario launches an incoming deterministic practice snowball. Press Mouse2 during the short frontal catch window.
+
 The bootstrap records `--server` as a headless/server runtime role, but authoritative networking is intentionally not implemented until the network milestone.
 
-## Development controls
+## Controls
 
+- `WASD` — move
+- Mouse — look
+- `Shift` — sprint
+- `Space` — jump
+- `Ctrl` or `C` — crouch / slide
+- `E` — hold to pack snow when standing near a snow patch
+- Mouse1 — hold to charge, release to throw
+- Mouse2 — catch
 - `F1` — toggle debug overlay
 - `R` — reset the active deterministic test scenario
+- `Esc` — release/capture mouse
 
-Gameplay controls are registered through Godot InputMap and will be exercised once the player controller lands.
-
-## Smoke test
+## Tests
 
 When Godot is installed locally/CI:
 
 ```bash
 godot --headless --path . -s tests/smoke/config_smoke.gd
+godot --headless --path . -s tests/unit/snowball_math_test.gd
+godot --headless --path . -s tests/unit/catch_validation_test.gd
 ```
 
-The smoke test checks that the core config resources load and canonical input actions exist.
+The current execution environment used to author these commits does not include a Godot executable, so runtime parsing/playtesting remains an explicit verification gate before this work should merge.
 
 ## Architecture
 

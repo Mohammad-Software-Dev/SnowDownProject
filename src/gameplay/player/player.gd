@@ -35,6 +35,7 @@ func _physics_process(delta: float) -> void:
 	var command := local_input.consume_command()
 	_apply_look(command.look_delta)
 	snowball_action.simulate(command, delta, _has_packable_snow(), movement.is_sliding())
+	_attempt_catch()
 	movement.simulate(command, delta, snowball_action.movement_multiplier())
 	_update_stance(command.crouch_held or movement.is_sliding(), delta)
 
@@ -57,6 +58,8 @@ func get_debug_snapshot() -> Dictionary:
 		"hand_state": snowball_action.state,
 		"pack_progress": snowball_action.pack_progress,
 		"charge": snowball_action.normalized_charge(),
+		"catch_active": snowball_action.is_catch_active(),
+		"last_catch_succeeded": snowball_action.last_catch_succeeded,
 		"can_pack": _has_packable_snow(),
 	}
 
@@ -65,6 +68,29 @@ func _has_packable_snow() -> bool:
 		if area.is_in_group("snow_source"):
 			return true
 	return false
+
+func _attempt_catch() -> void:
+	if not snowball_action.is_catch_active():
+		return
+	var catch_origin := global_position + Vector3.UP * 1.25
+	var forward := -global_transform.basis.z
+	for node in get_tree().get_nodes_in_group("snowball_projectile"):
+		var projectile := node as SnowballProjectile
+		if projectile == null or not projectile.active or projectile.owner_player == self:
+			continue
+		if not CatchValidation.is_valid(
+			catch_origin,
+			forward,
+			projectile.global_position,
+			projectile.velocity,
+			GameConfig.snowball.catch_range,
+			GameConfig.snowball.catch_half_angle_degrees
+		):
+			continue
+		if projectile.try_catch(self):
+			inventory.try_add()
+			snowball_action.confirm_catch_success()
+			break
 
 func _on_throw_requested(normalized_charge: float) -> void:
 	var aim_target := _resolve_aim_target()

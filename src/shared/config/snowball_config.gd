@@ -22,6 +22,7 @@ extends Resource
 @export_category("Catch")
 @export var catch_active_seconds: float = 0.18
 @export var catch_recovery_seconds: float = 0.32
+@export var catch_movement_multiplier: float = 0.80
 @export var catch_half_angle_degrees: float = 55.0
 @export var catch_range: float = 1.35
 

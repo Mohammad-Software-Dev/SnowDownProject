@@ -34,6 +34,7 @@ func _process(_delta: float) -> void:
 		lines.append("hand state: %s" % snapshot["hand_state"])
 		lines.append("inventory: %d/%d" % [snapshot["inventory"], snapshot["inventory_capacity"]])
 		lines.append("pack: %.0f%%  charge: %.0f%%" % [float(snapshot["pack_progress"]) / GameConfig.snowball.pack_duration_seconds * 100.0, float(snapshot["charge"]) * 100.0])
+		lines.append("catch active: %s  last success: %s" % [snapshot["catch_active"], snapshot["last_catch_succeeded"]])
 		lines.append("packable snow: %s" % snapshot["can_pack"])
 		lines.append("speed: %.2f m/s" % snapshot["speed"])
 		lines.append("velocity: (%.2f, %.2f, %.2f)" % [velocity.x, velocity.y, velocity.z])
