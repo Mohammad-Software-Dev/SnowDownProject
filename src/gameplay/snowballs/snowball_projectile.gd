@@ -14,6 +14,7 @@ var active: bool = true
 var lifetime: float = 0.0
 var owner_player: CollisionObject3D
 var _shape := SphereShape3D.new()
+var _streak: SnowballStreak3D
 
 func setup(owner_node: CollisionObject3D, spawn_position: Vector3, initial_velocity: Vector3, id: int) -> void:
 	owner_player = owner_node
@@ -28,6 +29,11 @@ func _ready() -> void:
 	if sphere != null:
 		sphere.radius = GameConfig.snowball.projectile_radius
 		sphere.height = GameConfig.snowball.projectile_radius * 2.0
+	if DisplayServer.get_name() != "headless":
+		_streak = SnowballStreak3D.new()
+		_streak.name = "VelocityStreak"
+		add_child(_streak)
+		_streak.update_from_velocity(velocity)
 
 func _physics_process(delta: float) -> void:
 	if not active:
@@ -51,6 +57,8 @@ func _physics_process(delta: float) -> void:
 		return
 	global_position = next_position
 	velocity = step["velocity"]
+	if _streak != null:
+		_streak.update_from_velocity(velocity)
 
 func try_catch(catcher: Node) -> bool:
 	if not active:
