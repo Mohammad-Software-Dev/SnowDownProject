@@ -24,6 +24,8 @@ func _ready() -> void:
 	add_to_group("glacier_valley")
 	add_to_group("prototype_gameplay_world")
 	_build_graybox()
+	if not App.is_server_runtime() and DisplayServer.get_name() != "headless":
+		_build_visual_identity_pass()
 	_build_scenario_marker()
 	_apply_scenario(App.active_scenario)
 	if not App.is_server_runtime():
@@ -66,9 +68,9 @@ func _build_graybox() -> void:
 	var width := config.playable_half_width * 2.0
 	var length := config.playable_half_length * 2.0
 	_add_block("ValleyFloor", Vector3(width, 1.0, length), Vector3(0.0, -0.5, 0.0), Vector3.ZERO, COLOR_SNOW)
-	_add_block("FrozenRiver", Vector3(config.river_half_width * 2.0, 0.32, length - 12.0), Vector3(0.0, 0.16, 0.0), Vector3.ZERO, COLOR_ICE, &"fast_surface")
-	_add_block("WestGlacierWall", Vector3(2.0, 18.0, length), Vector3(-config.playable_half_width - 1.0, 8.5, 0.0), Vector3.ZERO, COLOR_DEEP_ICE)
-	_add_block("EastGlacierWall", Vector3(2.0, 18.0, length), Vector3(config.playable_half_width + 1.0, 8.5, 0.0), Vector3.ZERO, COLOR_DEEP_ICE)
+	_add_block("FrozenRiver", Vector3(config.river_half_width * 2.0, 0.32, length - 12.0), Vector3(0.0, 0.16, 0.0), Vector3.ZERO, COLOR_ICE, &"fast_surface", 0.20)
+	_add_block("WestGlacierWall", Vector3(2.0, 18.0, length), Vector3(-config.playable_half_width - 1.0, 8.5, 0.0), Vector3.ZERO, COLOR_DEEP_ICE, &"", 0.48)
+	_add_block("EastGlacierWall", Vector3(2.0, 18.0, length), Vector3(config.playable_half_width + 1.0, 8.5, 0.0), Vector3.ZERO, COLOR_DEEP_ICE, &"", 0.48)
 	_add_block("NorthGlacierWall", Vector3(width, 18.0, 2.0), Vector3(0.0, 8.5, config.playable_half_length + 1.0), Vector3.ZERO, COLOR_ROCK)
 	_add_block("SouthGlacierWall", Vector3(width, 18.0, 2.0), Vector3(0.0, 8.5, -config.playable_half_length - 1.0), Vector3.ZERO, COLOR_ROCK)
 	_build_outpost("TeamAOutpost", 1.0, COLOR_TEAM_A)
@@ -82,7 +84,14 @@ func _build_graybox() -> void:
 		_add_snow_source("SnowSource%02d" % index, snow_positions[index])
 	if not App.is_server_runtime():
 		_add_sun()
-		_add_landmark_labels()
+		if App.has_explicit_launch_arguments():
+			_add_landmark_labels()
+
+func _build_visual_identity_pass() -> void:
+	var presenter := GlacierValleyPresenter.new()
+	presenter.name = "GlacierValleyPresentation"
+	presenter.configure(GameConfig.glacier_valley, MAP01_LAYOUT.snow_source_positions(GameConfig.glacier_valley))
+	add_child(presenter)
 
 func _build_outpost(prefix: String, side: float, team_color: Color) -> void:
 	var config := GameConfig.glacier_valley
@@ -94,18 +103,18 @@ func _build_outpost(prefix: String, side: float, team_color: Color) -> void:
 	_add_block(prefix + "RearShelter", Vector3(12.0, 3.2, 1.2), Vector3(0.0, 1.6, spawn_z + 5.0 * side), Vector3.ZERO, COLOR_WOOD)
 
 func _build_glacier_arch() -> void:
-	_add_block("GlacierArchWestPillar", Vector3(4.5, 9.0, 6.0), Vector3(-9.0, 4.5, 0.0), Vector3(0.0, 0.0, 7.0), COLOR_DEEP_ICE)
-	_add_block("GlacierArchEastPillar", Vector3(4.5, 9.0, 6.0), Vector3(9.0, 4.5, 0.0), Vector3(0.0, 0.0, -7.0), COLOR_DEEP_ICE)
-	_add_block("GlacierArchCrown", Vector3(22.0, 3.2, 6.0), Vector3(0.0, 9.5, 0.0), Vector3.ZERO, COLOR_ICE)
+	_add_block("GlacierArchWestPillar", Vector3(4.5, 9.0, 6.0), Vector3(-9.0, 4.5, 0.0), Vector3(0.0, 0.0, 7.0), COLOR_DEEP_ICE, &"", 0.38)
+	_add_block("GlacierArchEastPillar", Vector3(4.5, 9.0, 6.0), Vector3(9.0, 4.5, 0.0), Vector3(0.0, 0.0, -7.0), COLOR_DEEP_ICE, &"", 0.38)
+	_add_block("GlacierArchCrown", Vector3(22.0, 3.2, 6.0), Vector3(0.0, 9.5, 0.0), Vector3.ZERO, COLOR_ICE, &"", 0.30)
 
 func _build_cave_route() -> void:
 	var config := GameConfig.glacier_valley
 	var center_x := config.cave_center_x
 	var route_length := config.cave_half_length * 2.0
 	_add_block("CaveOuterWall", Vector3(1.8, 6.0, route_length), Vector3(center_x - config.cave_half_width, 3.0, 0.0), Vector3.ZERO, COLOR_ROCK)
-	_add_block("CaveInnerWallNorth", Vector3(1.8, 6.0, 22.0), Vector3(center_x + config.cave_half_width, 3.0, 17.0), Vector3.ZERO, COLOR_DEEP_ICE)
-	_add_block("CaveInnerWallSouth", Vector3(1.8, 6.0, 22.0), Vector3(center_x + config.cave_half_width, 3.0, -17.0), Vector3.ZERO, COLOR_DEEP_ICE)
-	_add_block("CaveRoof", Vector3(config.cave_half_width * 2.0, 1.0, route_length), Vector3(center_x, 5.8, 0.0), Vector3.ZERO, COLOR_DEEP_ICE)
+	_add_block("CaveInnerWallNorth", Vector3(1.8, 6.0, 22.0), Vector3(center_x + config.cave_half_width, 3.0, 17.0), Vector3.ZERO, COLOR_DEEP_ICE, &"", 0.40)
+	_add_block("CaveInnerWallSouth", Vector3(1.8, 6.0, 22.0), Vector3(center_x + config.cave_half_width, 3.0, -17.0), Vector3.ZERO, COLOR_DEEP_ICE, &"", 0.40)
+	_add_block("CaveRoof", Vector3(config.cave_half_width * 2.0, 1.0, route_length), Vector3(center_x, 5.8, 0.0), Vector3.ZERO, COLOR_DEEP_ICE, &"", 0.36)
 	_add_block("CaveBendNorth", Vector3(5.0, 3.0, 2.0), Vector3(center_x - 2.0, 1.5, 12.0), Vector3(0.0, 22.0, 0.0), COLOR_ROCK)
 	_add_block("CaveBendSouth", Vector3(5.0, 3.0, 2.0), Vector3(center_x + 2.0, 1.5, -12.0), Vector3(0.0, -22.0, 0.0), COLOR_ROCK)
 
@@ -115,19 +124,19 @@ func _build_high_shelf() -> void:
 	_add_block("HighShelf", Vector3(config.shelf_half_width * 2.0, 2.0, config.shelf_half_length * 2.0), Vector3(x, config.high_shelf_height - 1.0, 0.0), Vector3.ZERO, COLOR_ROCK)
 	_add_block("HighShelfNorthRamp", Vector3(config.shelf_half_width * 2.0, 1.0, 30.0), Vector3(x, 5.7, 30.0), Vector3(23.0, 0.0, 0.0), COLOR_SNOW)
 	_add_block("HighShelfSouthRamp", Vector3(config.shelf_half_width * 2.0, 1.0, 30.0), Vector3(x, 5.7, -30.0), Vector3(-23.0, 0.0, 0.0), COLOR_SNOW)
-	_add_block("HighShelfSparseCover", Vector3(4.0, 2.0, 3.0), Vector3(x + 3.0, config.high_shelf_height + 1.0, -5.0), Vector3.ZERO, COLOR_DEEP_ICE)
+	_add_block("HighShelfSparseCover", Vector3(4.0, 2.0, 3.0), Vector3(x + 3.0, config.high_shelf_height + 1.0, -5.0), Vector3.ZERO, COLOR_DEEP_ICE, &"", 0.44)
 
 func _build_cover_rhythm() -> void:
-	_add_block("RiverCoverNorth", Vector3(6.0, 2.0, 2.4), Vector3(4.0, 1.0, 20.0), Vector3(0.0, 18.0, 0.0), COLOR_DEEP_ICE)
-	_add_block("RiverCoverSouth", Vector3(6.0, 2.0, 2.4), Vector3(-4.0, 1.0, -20.0), Vector3(0.0, -18.0, 0.0), COLOR_DEEP_ICE)
+	_add_block("RiverCoverNorth", Vector3(6.0, 2.0, 2.4), Vector3(4.0, 1.0, 20.0), Vector3(0.0, 18.0, 0.0), COLOR_DEEP_ICE, &"", 0.44)
+	_add_block("RiverCoverSouth", Vector3(6.0, 2.0, 2.4), Vector3(-4.0, 1.0, -20.0), Vector3(0.0, -18.0, 0.0), COLOR_DEEP_ICE, &"", 0.44)
 	_add_block("MidSnowbankNorthWest", Vector3(9.0, 1.8, 2.5), Vector3(-14.0, 0.9, 16.0), Vector3(0.0, 28.0, 0.0), COLOR_SNOW)
 	_add_block("MidSnowbankSouthEast", Vector3(9.0, 1.8, 2.5), Vector3(14.0, 0.9, -16.0), Vector3(0.0, -28.0, 0.0), COLOR_SNOW)
 	_add_block("ArchCounterNorthEast", Vector3(5.0, 3.0, 4.0), Vector3(17.0, 1.5, 10.0), Vector3(0.0, 15.0, 0.0), COLOR_ROCK)
 	_add_block("ArchCounterSouthWest", Vector3(5.0, 3.0, 4.0), Vector3(-17.0, 1.5, -10.0), Vector3(0.0, -15.0, 0.0), COLOR_ROCK)
-	_add_block("BrokenGlacierA", Vector3(5.0, 5.5, 5.0), Vector3(20.0, 2.75, 25.0), Vector3(0.0, 18.0, 5.0), COLOR_DEEP_ICE)
-	_add_block("BrokenGlacierB", Vector3(4.0, 3.8, 7.0), Vector3(18.0, 1.9, -28.0), Vector3(0.0, -24.0, 0.0), COLOR_DEEP_ICE)
+	_add_block("BrokenGlacierA", Vector3(5.0, 5.5, 5.0), Vector3(20.0, 2.75, 25.0), Vector3(0.0, 18.0, 5.0), COLOR_DEEP_ICE, &"", 0.42)
+	_add_block("BrokenGlacierB", Vector3(4.0, 3.8, 7.0), Vector3(18.0, 1.9, -28.0), Vector3(0.0, -24.0, 0.0), COLOR_DEEP_ICE, &"", 0.42)
 
-func _add_block(name: String, size: Vector3, position: Vector3, rotation: Vector3, color: Color, group_name: StringName = &"") -> StaticBody3D:
+func _add_block(name: String, size: Vector3, position: Vector3, rotation: Vector3, color: Color, group_name: StringName = &"", roughness: float = 0.9) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.name = name
 	body.position = position
@@ -147,7 +156,7 @@ func _add_block(name: String, size: Vector3, position: Vector3, rotation: Vector
 		box.size = size
 		var mesh := MeshInstance3D.new()
 		mesh.mesh = box
-		mesh.material_override = _make_material(color)
+		mesh.material_override = _make_material(color, roughness)
 		body.add_child(mesh)
 	return body
 
@@ -169,7 +178,7 @@ func _add_snow_source(source_name: String, position: Vector3) -> void:
 		box.size = Vector3(5.0, 0.25, 5.0)
 		var mesh := MeshInstance3D.new()
 		mesh.mesh = box
-		mesh.material_override = _make_material(Color(0.94, 0.98, 1.0, 1.0))
+		mesh.material_override = _make_material(Color(0.94, 0.98, 1.0, 1.0), 1.0)
 		source.add_child(mesh)
 
 func _build_scenario_marker() -> void:
@@ -255,7 +264,8 @@ func _add_sun() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.name = "Sun"
 	sun.rotation_degrees = Vector3(-52.0, -28.0, 0.0)
-	sun.light_energy = 1.2
+	sun.light_color = Color(0.88, 0.95, 1.0, 1.0)
+	sun.light_energy = 1.28
 	sun.shadow_enabled = true
 	add_child(sun)
 
@@ -274,8 +284,8 @@ func _add_label(text_value: String, position: Vector3) -> void:
 	label.outline_size = 8
 	add_child(label)
 
-func _make_material(color: Color) -> StandardMaterial3D:
+func _make_material(color: Color, roughness: float = 0.9) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
-	material.roughness = 0.9
+	material.roughness = roughness
 	return material
