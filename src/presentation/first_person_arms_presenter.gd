@@ -60,26 +60,27 @@ func _ensure_rig() -> void:
 	var sphere := SphereMesh.new()
 	sphere.radius = 0.095
 	sphere.height = 0.19
-	sphere.radial_segments = 24
-	sphere.rings = 12
+	sphere.radial_segments = 28
+	sphere.rings = 14
 	_snowball.mesh = sphere
-	_snowball.material_override = _material(Color(0.965, 0.985, 1.0, 1.0), 0.92)
+	_snowball.material_override = RealisticMaterialFactory.snowball_surface()
 	_snowball.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_rig_root.add_child(_snowball)
 	_add_snowball_clump(Vector3(0.048, 0.014, -0.040), 0.040)
 	_add_snowball_clump(Vector3(-0.035, 0.046, 0.018), 0.032)
 	_add_snowball_clump(Vector3(-0.018, -0.045, -0.026), 0.027)
+	_add_snowball_clump(Vector3(0.012, 0.052, 0.050), 0.022)
 
 func _add_snowball_clump(offset: Vector3, radius: float) -> void:
 	var clump := MeshInstance3D.new()
 	var mesh := SphereMesh.new()
 	mesh.radius = radius
 	mesh.height = radius * 2.0
-	mesh.radial_segments = 12
-	mesh.rings = 6
+	mesh.radial_segments = 14
+	mesh.rings = 7
 	clump.mesh = mesh
 	clump.position = offset
-	clump.material_override = _material(Color(0.91, 0.955, 0.985, 1.0), 0.96)
+	clump.material_override = RealisticMaterialFactory.snowball_surface()
 	clump.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_snowball.add_child(clump)
 
@@ -93,10 +94,10 @@ func _build_hand(node_name: String, side: float) -> Node3D:
 	forearm_mesh.top_radius = 0.052
 	forearm_mesh.bottom_radius = 0.078
 	forearm_mesh.height = 0.42
-	forearm_mesh.radial_segments = 20
+	forearm_mesh.radial_segments = 24
 	forearm.mesh = forearm_mesh
 	forearm.position = Vector3(0.0, -0.18, 0.075)
-	forearm.material_override = _material(WinterCharacterPalette.NEUTRAL_JACKET, 0.72)
+	forearm.material_override = RealisticMaterialFactory.fabric_surface(WinterCharacterPalette.NEUTRAL_JACKET, 0.80)
 	forearm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(forearm)
 
@@ -106,7 +107,7 @@ func _build_hand(node_name: String, side: float) -> Node3D:
 	sleeve_mesh.size = Vector3(0.075, 0.18, 0.018)
 	sleeve_panel.mesh = sleeve_mesh
 	sleeve_panel.position = Vector3(0.0, -0.18, -0.005)
-	sleeve_panel.material_override = _material(WinterCharacterPalette.NEUTRAL_ACCENT, 0.62)
+	sleeve_panel.material_override = RealisticMaterialFactory.fabric_surface(WinterCharacterPalette.NEUTRAL_ACCENT, 0.72)
 	sleeve_panel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(sleeve_panel)
 
@@ -116,10 +117,10 @@ func _build_hand(node_name: String, side: float) -> Node3D:
 	cuff_mesh.top_radius = 0.068
 	cuff_mesh.bottom_radius = 0.075
 	cuff_mesh.height = 0.072
-	cuff_mesh.radial_segments = 18
+	cuff_mesh.radial_segments = 20
 	cuff.mesh = cuff_mesh
 	cuff.position = Vector3(0.0, -0.045, 0.018)
-	cuff.material_override = _material(WinterCharacterPalette.NEUTRAL_ACCENT, 0.58)
+	cuff.material_override = RealisticMaterialFactory.fabric_surface(WinterCharacterPalette.NEUTRAL_ACCENT, 0.70)
 	cuff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(cuff)
 
@@ -128,12 +129,12 @@ func _build_hand(node_name: String, side: float) -> Node3D:
 	var palm_mesh := SphereMesh.new()
 	palm_mesh.radius = 0.071
 	palm_mesh.height = 0.13
-	palm_mesh.radial_segments = 18
-	palm_mesh.rings = 9
+	palm_mesh.radial_segments = 22
+	palm_mesh.rings = 11
 	palm.mesh = palm_mesh
 	palm.scale = Vector3(1.02, 0.76, 1.10)
 	palm.position = Vector3(0.0, 0.015, -0.018)
-	palm.material_override = _material(WinterCharacterPalette.GLOVE, 0.76, 0.025)
+	palm.material_override = RealisticMaterialFactory.glove_surface(WinterCharacterPalette.GLOVE)
 	palm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(palm)
 
@@ -143,7 +144,7 @@ func _build_hand(node_name: String, side: float) -> Node3D:
 	knuckle_mesh.size = Vector3(0.112, 0.034, 0.070)
 	knuckle_pad.mesh = knuckle_mesh
 	knuckle_pad.position = Vector3(0.0, 0.032, -0.058)
-	knuckle_pad.material_override = _material(WinterCharacterPalette.GLOVE.lightened(0.035), 0.70, 0.02)
+	knuckle_pad.material_override = RealisticMaterialFactory.glove_surface(WinterCharacterPalette.GLOVE.lightened(0.03))
 	knuckle_pad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(knuckle_pad)
 
@@ -156,7 +157,7 @@ func _build_hand(node_name: String, side: float) -> Node3D:
 		finger.mesh = finger_mesh
 		finger.position = Vector3((-0.041 + finger_index * 0.027) * side, 0.018, -0.091)
 		finger.rotation_degrees.x = 78.0
-		finger.material_override = _material(WinterCharacterPalette.GLOVE, 0.78, 0.02)
+		finger.material_override = RealisticMaterialFactory.glove_surface(WinterCharacterPalette.GLOVE)
 		finger.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(finger)
 
@@ -168,7 +169,7 @@ func _build_hand(node_name: String, side: float) -> Node3D:
 	thumb.mesh = thumb_mesh
 	thumb.position = Vector3(0.060 * side, 0.005, -0.020)
 	thumb.rotation_degrees = Vector3(18.0, 0.0, -50.0 * side)
-	thumb.material_override = _material(WinterCharacterPalette.GLOVE, 0.78, 0.02)
+	thumb.material_override = RealisticMaterialFactory.glove_surface(WinterCharacterPalette.GLOVE)
 	thumb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(thumb)
 	return root
@@ -186,18 +187,11 @@ func _apply_team_palette(team_index: int) -> void:
 		var sleeve_panel := hand_root.get_node_or_null("SleevePanel") as MeshInstance3D
 		var cuff := hand_root.get_node_or_null("TeamCuff") as MeshInstance3D
 		if forearm != null:
-			forearm.material_override = _material(jacket, 0.72)
+			forearm.material_override = RealisticMaterialFactory.fabric_surface(jacket, 0.80)
 		if sleeve_panel != null:
-			sleeve_panel.material_override = _material(accent.darkened(0.08), 0.60)
+			sleeve_panel.material_override = RealisticMaterialFactory.fabric_surface(accent.darkened(0.10), 0.74)
 		if cuff != null:
-			cuff.material_override = _material(accent, 0.56)
-
-func _material(color: Color, roughness: float, metallic: float = 0.0) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.roughness = roughness
-	material.metallic = metallic
-	return material
+			cuff.material_override = RealisticMaterialFactory.fabric_surface(accent, 0.70)
 
 func _local_snapshot() -> Dictionary:
 	var offline := get_tree().get_first_node_in_group("local_player") as SnowdownPlayer
