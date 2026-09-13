@@ -1,6 +1,12 @@
 class_name ThirdPersonPose
 extends RefCounted
 
+const STATE_HANDS_FREE := &"hands_free"
+const STATE_PACKING := &"packing"
+const STATE_THROW_CHARGING := &"throw_charging"
+const STATE_THROW_RECOVERING := &"throw_recovering"
+const STATE_CATCHING := &"catching"
+
 static func resolve(
 	speed: float,
 	vertical_velocity: float,
@@ -29,17 +35,17 @@ static func resolve(
 		right_arm_rotation.x = -0.20
 
 	match hand_state:
-		SnowballActionComponent.PACKING:
+		STATE_PACKING:
 			left_arm_rotation = Vector3(-1.05, 0.0, -0.42)
 			right_arm_rotation = Vector3(-1.05, 0.0, 0.42)
-		SnowballActionComponent.THROW_CHARGING:
+		STATE_THROW_CHARGING:
 			var windup := clampf(charge, 0.0, 1.0)
 			left_arm_rotation = Vector3(-0.45, 0.0, -0.22)
 			right_arm_rotation = Vector3(lerpf(-0.55, 0.35, windup), -0.35 * windup, lerpf(0.18, 0.78, windup))
-		SnowballActionComponent.THROW_RECOVERING:
+		STATE_THROW_RECOVERING:
 			left_arm_rotation = Vector3(-0.20, 0.0, -0.10)
 			right_arm_rotation = Vector3(-1.38, 0.0, 0.08)
-		SnowballActionComponent.CATCHING:
+		STATE_CATCHING:
 			left_arm_rotation = Vector3(-1.28, 0.0, -0.34)
 			right_arm_rotation = Vector3(-1.28, 0.0, 0.34)
 
