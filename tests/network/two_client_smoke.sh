@@ -55,6 +55,13 @@ if [[ $(grep -c "peer joined" "$SERVER_LOG") -lt 2 ]] || \
   echo "--- server ---"; cat "$SERVER_LOG"; echo "--- client A ---"; cat "$CLIENT_A_LOG"; echo "--- client B ---"; cat "$CLIENT_B_LOG"; echo "two-client catch/authority assertions failed" >&2; exit 1
 fi
 
+# Normal local conditions must prove prediction -> authority promotion. Under simulated
+# latency/loss an authoritative-only fallback is legal when inventory confirmation arrives
+# too late to create a cosmetic prediction, but it must still remain a single projectile.
+if [[ "$LATENCY" -eq 0 ]] && ! grep -Eq "SNOWDOWN_NETWORK_SNOWBALL_OK name=A.*merges=[1-9][0-9]*" "$CLIENT_A_LOG"; then
+  echo "--- client A ---"; cat "$CLIENT_A_LOG"; echo "zero-latency throw did not merge prediction" >&2; exit 1
+fi
+
 echo "SNOWDOWN_TWO_CLIENT_NETWORK_OK latency=$LATENCY jitter=$JITTER loss=$LOSS"
 echo "SNOWDOWN_AUTHORITATIVE_SNOWBALL_OK"
 echo "SNOWDOWN_AUTHORITATIVE_CATCH_OK"
