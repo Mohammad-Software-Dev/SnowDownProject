@@ -1,9 +1,10 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://src/network/replication/network_player.gd" id="1"]
 [ext_resource type="Script" path="res://src/gameplay/movement/player_movement_component.gd" id="2"]
 [ext_resource type="Script" path="res://src/gameplay/inventory/snowball_inventory_component.gd" id="3"]
 [ext_resource type="Script" path="res://src/gameplay/snowballs/snowball_action_component.gd" id="4"]
+[ext_resource type="Script" path="res://src/presentation/third_person_mannequin.gd" id="5"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.42
@@ -70,3 +71,6 @@ script = ExtResource("3")
 
 [node name="SnowballAction" type="Node" parent="Components"]
 script = ExtResource("4")
+
+[node name="ThirdPersonMannequin" type="Node3D" parent="."]
+script = ExtResource("5")
