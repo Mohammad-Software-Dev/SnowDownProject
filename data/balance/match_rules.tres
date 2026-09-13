@@ -7,6 +7,7 @@ script = ExtResource("1")
 team_size = 4
 regulation_seconds = 360.0
 countdown_seconds = 3.0
+results_seconds = 5.0
 spawn_protection_seconds = 2.0
 body_hit_score = 1
 head_hit_score = 2
