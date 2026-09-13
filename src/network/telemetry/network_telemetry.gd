@@ -77,7 +77,9 @@ func sample_players(players: Array[Node]) -> void:
 		if raw_team == null:
 			continue
 		var team: int = int(raw_team)
-		var z: float = player_node.global_position.z
+		# Network players are direct children of the origin-aligned Players root, so local
+		# position is the authoritative world-space sample and remains unit-test friendly.
+		var z: float = player_node.position.z
 		if absf(z) <= CENTER_HALF_LENGTH:
 			if team == 0:
 				team_a_center_samples += 1
