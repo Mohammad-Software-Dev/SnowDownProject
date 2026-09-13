@@ -20,6 +20,7 @@ var last_network_event: String = ""
 var _peer: ENetMultiplayerPeer
 var _players_root: Node3D
 var _projectiles_root: Node3D
+var _match_coordinator: NetworkMatchCoordinator
 var _roster: Dictionary = {}
 var _server_projectiles: Dictionary = {}
 var _client_projectiles: Dictionary = {}
@@ -36,6 +37,10 @@ func _ready() -> void:
 	_projectiles_root = Node3D.new()
 	_projectiles_root.name = "Projectiles"
 	add_child(_projectiles_root)
+	_match_coordinator = NetworkMatchCoordinator.new()
+	_match_coordinator.name = "Match"
+	add_child(_match_coordinator)
+	_match_coordinator.configure(self)
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.connected_to_server.connect(_on_connected_to_server)
@@ -68,6 +73,7 @@ func get_debug_snapshot() -> Dictionary:
 	var hand_state: StringName = &""
 	var catch_rewind_ms := 0.0
 	var catch_succeeded := false
+	var spawn_protection := 0.0
 	var local_player := get_tree().get_first_node_in_group("network_local_player") as NetworkPlayer
 	if local_player != null:
 		var local_snapshot := local_player.get_network_debug_snapshot()
@@ -77,12 +83,16 @@ func get_debug_snapshot() -> Dictionary:
 		hand_state = local_snapshot["hand_state"]
 		catch_rewind_ms = float(local_snapshot["last_catch_rewind_ms"])
 		catch_succeeded = bool(local_snapshot["last_catch_succeeded"])
+		spawn_protection = float(local_snapshot["spawn_protection"])
+	var match_snapshot := _match_coordinator.get_debug_snapshot() if _match_coordinator != null else {}
 	return {
 		"state": state, "peer_id": local_peer_id, "roster": _roster.size(), "rtt_ms": rtt_ms, "clock_offset_ms": clock_offset_ms,
 		"reconciliations": reconciliation_count, "server_rejected_inputs": rejected_inputs, "inventory": inventory, "hand_state": hand_state,
 		"projectiles": _server_projectiles.size() if App.is_server_runtime() else _client_projectiles.size(), "predicted_projectiles": _predicted_projectiles.size(),
 		"prediction_merges": projectile_prediction_merges, "team_a_score": team_a_score, "team_b_score": team_b_score, "last_event": last_network_event,
-		"catch_rewind_ms": catch_rewind_ms, "catch_succeeded": catch_succeeded,
+		"catch_rewind_ms": catch_rewind_ms, "catch_succeeded": catch_succeeded, "spawn_protection": spawn_protection,
+		"match_phase": match_snapshot.get("phase", &"waiting"), "match_time_remaining": match_snapshot.get("time_remaining", 0.0),
+		"match_round": match_snapshot.get("round_number", 0), "match_winner_team": match_snapshot.get("winner_team", -1),
 		"sim_latency_ms": App.net_sim_latency_ms, "sim_jitter_ms": App.net_sim_jitter_ms, "sim_loss_percent": App.net_sim_loss_percent,
 	}
 
@@ -123,6 +133,42 @@ func spawn_predicted_throw(input_sequence: int, spawn_position: Vector3, project
 	replica.setup_predicted(input_sequence, local_peer_id, spawn_position, projectile_velocity)
 	replica.prediction_expired.connect(_on_prediction_expired)
 	_predicted_projectiles[input_sequence] = replica
+
+func server_note_offensive_action(player: NetworkPlayer) -> void:
+	if _match_coordinator != null:
+		_match_coordinator.server_note_offensive_action(player)
+
+func server_get_player(peer_id: int) -> NetworkPlayer:
+	if not App.is_server_runtime():
+		return null
+	return _players_root.get_node_or_null("Player_%d" % peer_id) as NetworkPlayer
+
+func server_reset_roster_for_round() -> void:
+	if not App.is_server_runtime():
+		return
+	for peer_key in _roster.keys():
+		var peer_id := int(peer_key)
+		var player := server_get_player(peer_id)
+		var roster_state: Dictionary = _roster[peer_key]
+		if player != null:
+			player.server_reset_for_round(Vector3(roster_state["position"]), float(roster_state["yaw"]))
+
+func server_grant_spawn_protection_all(duration: float) -> void:
+	if not App.is_server_runtime():
+		return
+	for player_node in get_tree().get_nodes_in_group("network_server_player"):
+		var player := player_node as NetworkPlayer
+		if player != null:
+			player.server_grant_spawn_protection(duration)
+
+func server_clear_all_projectiles(reason: StringName) -> void:
+	if not App.is_server_runtime():
+		return
+	for projectile in _server_projectiles.values():
+		if is_instance_valid(projectile):
+			projectile.queue_free()
+	_server_projectiles.clear()
+	client_clear_projectiles.rpc(reason)
 
 func _start_server() -> void:
 	_peer = ENetMultiplayerPeer.new()
@@ -166,6 +212,9 @@ func _on_peer_connected(peer_id: int) -> void:
 		if is_instance_valid(projectile):
 			var snapshot: Dictionary = projectile.get_authoritative_snapshot()
 			client_spawn_snowball.rpc_id(peer_id, int(snapshot["projectile_id"]), int(snapshot["owner_peer_id"]), 0, Vector3(snapshot["position"]), Vector3(snapshot["velocity"]))
+	var joined_player := server_get_player(peer_id)
+	if joined_player != null and _match_coordinator != null and (_match_coordinator.phase == MatchFlow.PHASE_ACTIVE or _match_coordinator.phase == MatchFlow.PHASE_SUDDEN_SNOW):
+		joined_player.server_grant_spawn_protection(GameConfig.match_rules.spawn_protection_seconds)
 	print("[Snowdown][net] peer joined id=%d team=%d roster=%d" % [peer_id, team, _roster.size()])
 
 func _on_peer_disconnected(peer_id: int) -> void:
@@ -247,6 +296,17 @@ func client_resolve_snowball(projectile_id: int, kind: StringName, target_peer_i
 	_client_projectiles.erase(projectile_id)
 
 @rpc("authority", "call_remote", "reliable")
+func client_clear_projectiles(reason: StringName) -> void:
+	if App.is_server_runtime(): return
+	for projectile in _client_projectiles.values():
+		if is_instance_valid(projectile): projectile.queue_free()
+	for prediction in _predicted_projectiles.values():
+		if is_instance_valid(prediction): prediction.queue_free()
+	_client_projectiles.clear()
+	_predicted_projectiles.clear()
+	last_network_event = "projectiles cleared: %s" % reason
+
+@rpc("authority", "call_remote", "reliable")
 func client_sync_scores(score_a: int, score_b: int) -> void:
 	if App.is_server_runtime(): return
 	team_a_score = score_a
@@ -298,20 +358,18 @@ func _on_server_projectile_terminal(projectile_id: int, kind: StringName, target
 	if not App.is_server_runtime(): return
 	var projectile := _server_projectiles.get(projectile_id) as NetworkSnowballProjectile
 	var owner_peer_id := projectile.owner_peer_id if projectile != null else 0
-	var owner_state: Dictionary = _roster.get(owner_peer_id, {})
-	var target_state: Dictionary = _roster.get(target_peer_id, {})
-	if not owner_state.is_empty() and not target_state.is_empty() and int(owner_state["team"]) != int(target_state["team"]) and (kind == NetworkSnowballProjectile.RESULT_BODY or kind == NetworkSnowballProjectile.RESULT_HEAD):
-		var points := GameConfig.match_rules.head_hit_score if kind == NetworkSnowballProjectile.RESULT_HEAD else GameConfig.match_rules.body_hit_score
-		if int(owner_state["team"]) == 0: team_a_score += points
-		else: team_b_score += points
+	var resolved_kind := kind
+	if _match_coordinator != null:
+		resolved_kind = _match_coordinator.server_resolve_scoring(owner_peer_id, target_peer_id, kind)
 	_server_projectiles.erase(projectile_id)
-	client_resolve_snowball.rpc(projectile_id, kind, target_peer_id, world_position, team_a_score, team_b_score)
+	client_resolve_snowball.rpc(projectile_id, resolved_kind, target_peer_id, world_position, team_a_score, team_b_score)
 
 func _on_prediction_expired(prediction_key: int) -> void:
 	_predicted_projectiles.erase(prediction_key)
 
 func _update_network_smoke(delta: float) -> void:
 	if App.network_smoke_expected_peers <= 0 or App.network_smoke_name.is_empty(): return
+	if App.network_smoke_action == &"match_observe": return
 	if _roster.size() < App.network_smoke_expected_peers:
 		_smoke_ready_elapsed = 0.0
 		return
