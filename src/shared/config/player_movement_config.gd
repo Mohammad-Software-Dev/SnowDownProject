@@ -29,5 +29,7 @@ extends Resource
 
 @export_category("Camera")
 @export var mouse_sensitivity: float = 0.0018
+@export var controller_look_radians_per_second: float = 2.65
+@export var controller_look_deadzone: float = 0.18
 @export var pitch_min_degrees: float = -85.0
 @export var pitch_max_degrees: float = 85.0
