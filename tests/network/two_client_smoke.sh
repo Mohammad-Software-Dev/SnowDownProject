@@ -32,7 +32,7 @@ if ! grep -q "SNOWDOWN_NETWORK_SERVER_READY" "$SERVER_LOG"; then cat "$SERVER_LO
 SIM_ARGS=(--net-sim-latency-ms="$LATENCY" --net-sim-jitter-ms="$JITTER" --net-sim-loss-percent="$LOSS")
 timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=A --network-smoke-expected=2 --network-smoke-action=pack_throw "${SIM_ARGS[@]}" >"$CLIENT_A_LOG" 2>&1 &
 CLIENT_A_PID=$!
-sleep 0.25
+sleep 0.10
 timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=B --network-smoke-expected=2 --network-smoke-action=catch "${SIM_ARGS[@]}" >"$CLIENT_B_LOG" 2>&1 &
 CLIENT_B_PID=$!
 
