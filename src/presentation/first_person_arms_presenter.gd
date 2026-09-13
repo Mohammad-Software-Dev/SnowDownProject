@@ -9,6 +9,7 @@ var _snowball: MeshInstance3D
 var _motion_phase: float = 0.0
 var _last_network_event: String = ""
 var _reaction_strength: float = 0.0
+var _current_team_index: int = -99
 
 func _process(delta: float) -> void:
 	if DisplayServer.get_name() == "headless":
@@ -21,6 +22,7 @@ func _process(delta: float) -> void:
 		_rig_root.visible = false
 		return
 	_rig_root.visible = true
+	_apply_team_palette(int(snapshot.get("team", -1)))
 	var speed := float(snapshot.get("speed", 0.0))
 	_motion_phase += delta * (1.8 + minf(speed, 8.0) * 0.35)
 	_reaction_strength = move_toward(_reaction_strength, 0.0, delta * 4.5)
@@ -44,11 +46,12 @@ func _ensure_rig() -> void:
 	if _rig_root != null and is_instance_valid(_rig_root):
 		_rig_root.queue_free()
 	_camera = active_camera
+	_current_team_index = -99
 	_rig_root = Node3D.new()
 	_rig_root.name = "ProceduralFirstPersonArms"
 	_camera.add_child(_rig_root)
-	_left_root = _build_hand("LeftHand", Color(0.14, 0.32, 0.46, 1.0))
-	_right_root = _build_hand("RightHand", Color(0.14, 0.32, 0.46, 1.0))
+	_left_root = _build_hand("LeftHand", -1.0)
+	_right_root = _build_hand("RightHand", 1.0)
 	_rig_root.add_child(_left_root)
 	_rig_root.add_child(_right_root)
 	_snowball = MeshInstance3D.new()
@@ -56,17 +59,20 @@ func _ensure_rig() -> void:
 	var sphere := SphereMesh.new()
 	sphere.radius = 0.09
 	sphere.height = 0.18
+	sphere.radial_segments = 16
+	sphere.rings = 8
 	_snowball.mesh = sphere
 	var snow_material := StandardMaterial3D.new()
 	snow_material.albedo_color = Color(0.95, 0.98, 1.0, 1.0)
-	snow_material.roughness = 0.95
+	snow_material.roughness = 0.97
 	_snowball.material_override = snow_material
 	_snowball.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_rig_root.add_child(_snowball)
 
-func _build_hand(node_name: String, sleeve_color: Color) -> Node3D:
+func _build_hand(node_name: String, side: float) -> Node3D:
 	var root := Node3D.new()
 	root.name = node_name
+
 	var forearm := MeshInstance3D.new()
 	forearm.name = "Forearm"
 	var forearm_mesh := CapsuleMesh.new()
@@ -74,25 +80,70 @@ func _build_hand(node_name: String, sleeve_color: Color) -> Node3D:
 	forearm_mesh.height = 0.40
 	forearm.mesh = forearm_mesh
 	forearm.position = Vector3(0.0, -0.17, 0.07)
-	var sleeve := StandardMaterial3D.new()
-	sleeve.albedo_color = sleeve_color
-	sleeve.roughness = 0.8
-	forearm.material_override = sleeve
+	forearm.material_override = _material(WinterCharacterPalette.NEUTRAL_JACKET, 0.82)
 	forearm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(forearm)
+
+	var cuff := MeshInstance3D.new()
+	cuff.name = "TeamCuff"
+	var cuff_mesh := CylinderMesh.new()
+	cuff_mesh.top_radius = 0.067
+	cuff_mesh.bottom_radius = 0.071
+	cuff_mesh.height = 0.065
+	cuff_mesh.radial_segments = 14
+	cuff.mesh = cuff_mesh
+	cuff.position = Vector3(0.0, -0.045, 0.015)
+	cuff.material_override = _material(WinterCharacterPalette.NEUTRAL_ACCENT, 0.80)
+	cuff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(cuff)
+
 	var glove := MeshInstance3D.new()
 	glove.name = "Glove"
 	var glove_mesh := SphereMesh.new()
-	glove_mesh.radius = 0.075
-	glove_mesh.height = 0.15
+	glove_mesh.radius = 0.073
+	glove_mesh.height = 0.145
+	glove_mesh.radial_segments = 14
+	glove_mesh.rings = 7
 	glove.mesh = glove_mesh
-	var glove_material := StandardMaterial3D.new()
-	glove_material.albedo_color = Color(0.06, 0.08, 0.10, 1.0)
-	glove_material.roughness = 0.92
-	glove.material_override = glove_material
+	glove.scale = Vector3(1.08, 0.96, 0.92)
+	glove.material_override = _material(WinterCharacterPalette.GLOVE, 0.94)
 	glove.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(glove)
+
+	var thumb := MeshInstance3D.new()
+	thumb.name = "Thumb"
+	var thumb_mesh := CapsuleMesh.new()
+	thumb_mesh.radius = 0.025
+	thumb_mesh.height = 0.085
+	thumb.mesh = thumb_mesh
+	thumb.position = Vector3(0.058 * side, -0.006, -0.004)
+	thumb.rotation_degrees = Vector3(0.0, 0.0, -48.0 * side)
+	thumb.material_override = _material(WinterCharacterPalette.GLOVE, 0.94)
+	thumb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(thumb)
 	return root
+
+func _apply_team_palette(team_index: int) -> void:
+	if team_index == _current_team_index:
+		return
+	_current_team_index = team_index
+	var jacket := WinterCharacterPalette.jacket_color(team_index)
+	var accent := WinterCharacterPalette.accent_color(team_index)
+	for hand_root in [_left_root, _right_root]:
+		if hand_root == null:
+			continue
+		var forearm := hand_root.get_node_or_null("Forearm") as MeshInstance3D
+		var cuff := hand_root.get_node_or_null("TeamCuff") as MeshInstance3D
+		if forearm != null:
+			forearm.material_override = _material(jacket, 0.82)
+		if cuff != null:
+			cuff.material_override = _material(accent, 0.80)
+
+func _material(color: Color, roughness: float) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = roughness
+	return material
 
 func _local_snapshot() -> Dictionary:
 	var offline := get_tree().get_first_node_in_group("local_player") as SnowdownPlayer
@@ -125,6 +176,6 @@ func _apply_pose(pose: Dictionary, delta: float) -> void:
 	_left_root.rotation = _left_root.rotation.lerp(Vector3(pose["left_rotation"]), weight)
 	_right_root.rotation = _right_root.rotation.lerp(Vector3(pose["right_rotation"]), weight)
 	_snowball.position = _snowball.position.lerp(Vector3(pose["ball_position"]), weight)
-	var target_scale := Vector3.ONE * float(pose["ball_scale"])
+	var target_scale := Vector3(1.0, 0.94, 1.04) * float(pose["ball_scale"])
 	_snowball.scale = _snowball.scale.lerp(target_scale, weight)
 	_snowball.visible = bool(pose["ball_visible"])
