@@ -213,13 +213,17 @@ func client_despawn_player(peer_id: int) -> void:
 @rpc("authority", "call_remote", "reliable")
 func client_spawn_snowball(projectile_id: int, owner_peer_id: int, input_sequence: int, spawn_position: Vector3, projectile_velocity: Vector3) -> void:
 	if App.is_server_runtime() or _client_projectiles.has(projectile_id): return
-	var replica: NetworkSnowballReplica
-	if owner_peer_id == local_peer_id and input_sequence > 0 and _predicted_projectiles.has(input_sequence):
-		replica = _predicted_projectiles[input_sequence] as NetworkSnowballReplica
-		_predicted_projectiles.erase(input_sequence)
-		replica.promote_to_authoritative(projectile_id, spawn_position, projectile_velocity)
-		projectile_prediction_merges += 1
-	else:
+	var replica: NetworkSnowballReplica = null
+	if owner_peer_id == local_peer_id:
+		var prediction_key := input_sequence
+		if not _predicted_projectiles.has(prediction_key) and _predicted_projectiles.size() == 1:
+			prediction_key = int(_predicted_projectiles.keys()[0])
+		if prediction_key > 0 and _predicted_projectiles.has(prediction_key):
+			replica = _predicted_projectiles[prediction_key] as NetworkSnowballReplica
+			_predicted_projectiles.erase(prediction_key)
+			replica.promote_to_authoritative(projectile_id, spawn_position, projectile_velocity)
+			projectile_prediction_merges += 1
+	if replica == null:
 		replica = CLIENT_PROJECTILE_SCENE.instantiate() as NetworkSnowballReplica
 		replica.name = "Projectile_%d" % projectile_id
 		_projectiles_root.add_child(replica)
