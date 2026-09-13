@@ -38,26 +38,26 @@ if ! grep -q "SNOWDOWN_NETWORK_SERVER_READY" "$SERVER_LOG"; then
   exit 1
 fi
 
-# This client begins the deterministic pack->throw smoke action immediately after its
-# network player exists. Killing it well before pack completion exercises disconnect
-# cleanup while an authoritative hand action is in progress, before any throw can score.
+# The pack->throw smoke action starts as soon as the network player exists. Server-side
+# peer join is not stdout-buffered, so key the kill window from that event rather than
+# waiting for client log output. 0.55 s is safely inside the configured pack duration.
 timeout --kill-after=2s 12s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=DROP --network-smoke-expected=1 --network-smoke-action=pack_throw >"$DROP_LOG" 2>&1 &
 DROP_PID=$!
 
 for _ in $(seq 1 50); do
-  if grep -q "\[Snowdown\]\[net\] connected peer=" "$DROP_LOG" && grep -q "peer joined" "$SERVER_LOG"; then break; fi
+  if grep -q "peer joined" "$SERVER_LOG"; then break; fi
   if ! kill -0 "$DROP_PID" 2>/dev/null; then
     echo "--- server ---"; cat "$SERVER_LOG"; echo "--- dropped client ---"; cat "$DROP_LOG"; exit 1
   fi
-  sleep 0.1
+  sleep 0.05
 done
-if ! grep -q "\[Snowdown\]\[net\] connected peer=" "$DROP_LOG"; then
+if ! grep -q "peer joined" "$SERVER_LOG"; then
   echo "--- server ---"; cat "$SERVER_LOG"; echo "--- dropped client ---"; cat "$DROP_LOG"
-  echo "disconnect test client never connected" >&2
+  echo "disconnect test client never joined" >&2
   exit 1
 fi
 
-sleep 0.45
+sleep 0.55
 kill -KILL "$DROP_PID" 2>/dev/null || true
 wait "$DROP_PID" 2>/dev/null || true
 DROP_PID=""
@@ -74,7 +74,7 @@ if ! grep -q "peer left .*roster=0" "$SERVER_LOG"; then
 fi
 if grep -q "SNOWDOWN_NETWORK_THROW_ACCEPTED" "$SERVER_LOG"; then
   echo "--- server ---"; cat "$SERVER_LOG"
-  echo "disconnecting mid-pack unexpectedly completed a throw" >&2
+  echo "disconnecting inside the pack window unexpectedly completed a throw" >&2
   exit 1
 fi
 
