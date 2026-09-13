@@ -49,6 +49,7 @@ func _start_configured_runtime() -> void:
 
 	if not App.is_server_runtime():
 		add_child(PROTOTYPE_HUD.instantiate())
+		add_child(FirstPersonArmsPresenter.new())
 		add_child(DEBUG_OVERLAY.instantiate())
 
 func _on_host_requested(port: int) -> void:
