@@ -24,6 +24,7 @@ var locally_controlled: bool = false
 var server_authoritative: bool = false
 var reconciliation_count: int = 0
 var server_rejected_inputs: int = 0
+var spawn_protection_remaining: float = 0.0
 
 var _spawn_position: Vector3 = Vector3.ZERO
 var _spawn_yaw: float = 0.0
@@ -50,6 +51,7 @@ var _authoritative_hand_state: StringName = SnowballActionComponent.HANDS_FREE
 var _authoritative_pack_progress: float = 0.0
 var _authoritative_charge: float = 0.0
 var _authoritative_last_catch_succeeded: bool = false
+var _authoritative_spawn_protection: float = 0.0
 var _local_charge_seconds: float = 0.0
 var _local_charging: bool = false
 var _predicted_catch_remaining: float = 0.0
@@ -119,7 +121,44 @@ func get_network_debug_snapshot() -> Dictionary:
 		"charge": _authoritative_charge,
 		"last_catch_succeeded": _authoritative_last_catch_succeeded if not server_authoritative else snowball_action.last_catch_succeeded,
 		"last_catch_rewind_ms": _last_catch_rewind_ms,
+		"spawn_protection": _authoritative_spawn_protection if not server_authoritative else spawn_protection_remaining,
 	}
+
+func server_reset_for_round(spawn: Vector3, yaw_degrees: float) -> void:
+	if not server_authoritative:
+		return
+	_spawn_position = spawn
+	_spawn_yaw = deg_to_rad(yaw_degrees)
+	global_position = spawn
+	rotation.y = _spawn_yaw
+	velocity = Vector3.ZERO
+	movement.reset()
+	inventory.reset()
+	snowball_action.reset()
+	_latest_server_command = PlayerInputCommand.new()
+	spawn_protection_remaining = 0.0
+
+func server_recover_from_oob() -> void:
+	if not server_authoritative:
+		return
+	global_position = _spawn_position
+	rotation.y = _spawn_yaw
+	velocity = Vector3.ZERO
+	movement.reset()
+	snowball_action.reset()
+	_latest_server_command = PlayerInputCommand.new()
+	server_grant_spawn_protection(GameConfig.match_rules.spawn_protection_seconds)
+
+func server_grant_spawn_protection(duration: float) -> void:
+	if server_authoritative:
+		spawn_protection_remaining = maxf(spawn_protection_remaining, maxf(0.0, duration))
+
+func server_clear_spawn_protection() -> void:
+	if server_authoritative:
+		spawn_protection_remaining = 0.0
+
+func server_is_spawn_protected() -> bool:
+	return server_authoritative and spawn_protection_remaining > 0.0
 
 func server_validate_catch_segment(segment_from: Vector3, segment_to: Vector3, projectile_velocity: Vector3) -> bool:
 	if not server_authoritative or not snowball_action.is_catch_active():
@@ -145,6 +184,7 @@ func server_confirm_catch(projectile_id: int) -> void:
 	print("SNOWDOWN_NETWORK_CATCH_ACCEPTED catcher=%d projectile=%d rewind_ms=%.1f" % [network_peer_id, projectile_id, _last_catch_rewind_ms])
 
 func _server_tick(delta: float) -> void:
+	spawn_protection_remaining = maxf(0.0, spawn_protection_remaining - delta)
 	snowball_action.simulate(_latest_server_command, delta, _has_packable_snow(), movement.is_sliding())
 	movement.simulate(_latest_server_command, delta, snowball_action.movement_multiplier())
 	_update_stance(_latest_server_command.crouch_held or movement.is_sliding(), delta)
@@ -155,11 +195,7 @@ func _server_tick(delta: float) -> void:
 	_latest_server_command.catch_pressed = false
 
 	if MAP01_LAYOUT.is_out_of_bounds(GameConfig.glacier_valley, global_position):
-		global_position = _spawn_position
-		velocity = Vector3.ZERO
-		rotation.y = _spawn_yaw
-		movement.reset()
-		snowball_action.reset()
+		server_recover_from_oob()
 	_record_history()
 
 	_snapshot_elapsed += delta
@@ -177,7 +213,8 @@ func _server_tick(delta: float) -> void:
 			snowball_action.pack_progress,
 			snowball_action.normalized_charge(),
 			snowball_action.last_catch_succeeded,
-			_last_catch_rewind_ms
+			_last_catch_rewind_ms,
+			spawn_protection_remaining
 		)
 
 func _client_prediction_tick(delta: float) -> void:
@@ -235,6 +272,10 @@ func submit_input(sequence: int, move: Vector2, sprint_held: bool, crouch_held: 
 	_latest_server_command.throw_held = throw_held
 	rotation.y = wrapf(yaw, -PI, PI)
 	_latest_aim_direction = aim_direction.normalized()
+	if throw_held and not previous_throw:
+		var session := get_tree().get_first_node_in_group("network_session") as NetworkSession
+		if session != null:
+			session.server_note_offensive_action(self)
 
 @rpc("any_peer", "call_remote", "reliable", 1)
 func request_catch(input_sequence: int, estimated_server_msec: int) -> void:
@@ -251,7 +292,7 @@ func request_catch(input_sequence: int, estimated_server_msec: int) -> void:
 	_latest_server_command.catch_pressed = true
 
 @rpc("authority", "call_remote", "unreliable")
-func receive_state(ack_sequence: int, server_position: Vector3, server_velocity: Vector3, server_yaw: float, crouched: bool, rejected_inputs: int, authoritative_inventory: int, hand_state: StringName, pack_progress: float, charge: float, last_catch_succeeded: bool, last_catch_rewind_ms: float) -> void:
+func receive_state(ack_sequence: int, server_position: Vector3, server_velocity: Vector3, server_yaw: float, crouched: bool, rejected_inputs: int, authoritative_inventory: int, hand_state: StringName, pack_progress: float, charge: float, last_catch_succeeded: bool, last_catch_rewind_ms: float, authoritative_spawn_protection: float) -> void:
 	if server_authoritative:
 		return
 	server_rejected_inputs = rejected_inputs
@@ -261,6 +302,7 @@ func receive_state(ack_sequence: int, server_position: Vector3, server_velocity:
 	_authoritative_charge = charge
 	_authoritative_last_catch_succeeded = last_catch_succeeded
 	_last_catch_rewind_ms = last_catch_rewind_ms
+	_authoritative_spawn_protection = maxf(0.0, authoritative_spawn_protection)
 	if not _local_charging:
 		_predicted_inventory = _authoritative_inventory
 	if not locally_controlled:
