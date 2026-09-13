@@ -27,6 +27,9 @@ run_godot --headless --path "$ROOT" -s tests/unit/match_flow_test.gd
 echo "== Snowdown: network telemetry =="
 run_godot --headless --path "$ROOT" -s tests/unit/network_telemetry_test.gd
 
+echo "== Snowdown: snowball presentation =="
+run_godot --headless --path "$ROOT" -s tests/unit/snowball_presentation_test.gd
+
 echo "== Snowdown: session addressing =="
 run_godot --headless --path "$ROOT" -s tests/unit/session_address_test.gd
 
