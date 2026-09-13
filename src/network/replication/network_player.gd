@@ -32,6 +32,11 @@ var _latest_aim_direction: Vector3 = Vector3(0.0, 0.0, -1.0)
 var _last_received_sequence: int = 0
 var _next_sequence: int = 1
 var _pending_commands: Array[Dictionary] = []
+var _network_send_queue: Array[Dictionary] = []
+var _catch_send_queue: Array[Dictionary] = []
+var _state_history: Array[Dictionary] = []
+var _catch_compensation_server_msec: int = 0
+var _last_catch_rewind_ms: float = 0.0
 var _snapshot_elapsed: float = 0.0
 var _look_accumulator: Vector2 = Vector2.ZERO
 var _pitch_radians: float = 0.0
@@ -44,11 +49,14 @@ var _predicted_inventory: int = 0
 var _authoritative_hand_state: StringName = SnowballActionComponent.HANDS_FREE
 var _authoritative_pack_progress: float = 0.0
 var _authoritative_charge: float = 0.0
+var _authoritative_last_catch_succeeded: bool = false
 var _local_charge_seconds: float = 0.0
 var _local_charging: bool = false
+var _predicted_catch_remaining: float = 0.0
 var _smoke_elapsed: float = 0.0
 var _smoke_throw_started: bool = false
 var _smoke_throw_released: bool = false
+var _smoke_catch_sent: bool = false
 
 func _ready() -> void:
 	snowball_action.configure(inventory)
@@ -66,6 +74,8 @@ func configure(peer_id: int, team: int, spawn: Vector3, yaw_degrees: float, is_l
 	_remote_target_position = spawn
 	_remote_target_yaw = _spawn_yaw
 	set_multiplayer_authority(1)
+	if server_authoritative:
+		add_to_group("network_server_player")
 	if locally_controlled:
 		add_to_group("network_local_player")
 	_build_client_presentation()
@@ -92,6 +102,9 @@ func get_collision_exclusion_rids() -> Array[RID]:
 	return [get_rid(), body_hitbox.get_rid(), head_hitbox.get_rid()]
 
 func get_network_debug_snapshot() -> Dictionary:
+	var shown_hand_state := _authoritative_hand_state if not server_authoritative else snowball_action.state
+	if _predicted_catch_remaining > 0.0 and locally_controlled:
+		shown_hand_state = SnowballActionComponent.CATCHING
 	return {
 		"peer_id": network_peer_id,
 		"team": team_index,
@@ -101,10 +114,35 @@ func get_network_debug_snapshot() -> Dictionary:
 		"surface": movement.current_surface,
 		"inventory": _authoritative_inventory if not server_authoritative else inventory.current,
 		"predicted_inventory": _predicted_inventory,
-		"hand_state": _authoritative_hand_state if not server_authoritative else snowball_action.state,
+		"hand_state": shown_hand_state,
 		"pack_progress": _authoritative_pack_progress,
 		"charge": _authoritative_charge,
+		"last_catch_succeeded": _authoritative_last_catch_succeeded if not server_authoritative else snowball_action.last_catch_succeeded,
+		"last_catch_rewind_ms": _last_catch_rewind_ms,
 	}
+
+func server_validate_catch_segment(segment_from: Vector3, segment_to: Vector3, projectile_velocity: Vector3) -> bool:
+	if not server_authoritative or not snowball_action.is_catch_active():
+		return false
+	var sample := _history_sample_at(_catch_compensation_server_msec)
+	if sample.is_empty():
+		return false
+	var position: Vector3 = sample["position"]
+	var yaw := float(sample["yaw"])
+	var catch_origin := position + Vector3.UP * 1.25
+	var forward := -(Basis(Vector3.UP, yaw).z).normalized()
+	return CatchValidation.is_swept_valid(catch_origin, forward, segment_from, segment_to, projectile_velocity, GameConfig.snowball.catch_range, GameConfig.snowball.catch_half_angle_degrees)
+
+func server_compensated_catch_origin() -> Vector3:
+	var sample := _history_sample_at(_catch_compensation_server_msec)
+	return Vector3(sample.get("position", global_position)) + Vector3.UP * 1.25
+
+func server_confirm_catch(projectile_id: int) -> void:
+	if not server_authoritative:
+		return
+	inventory.try_add()
+	snowball_action.confirm_catch_success()
+	print("SNOWDOWN_NETWORK_CATCH_ACCEPTED catcher=%d projectile=%d rewind_ms=%.1f" % [network_peer_id, projectile_id, _last_catch_rewind_ms])
 
 func _server_tick(delta: float) -> void:
 	snowball_action.simulate(_latest_server_command, delta, _has_packable_snow(), movement.is_sliding())
@@ -114,6 +152,7 @@ func _server_tick(delta: float) -> void:
 	_latest_server_command.crouch_pressed = false
 	_latest_server_command.throw_pressed = false
 	_latest_server_command.throw_released = false
+	_latest_server_command.catch_pressed = false
 
 	if MAP01_LAYOUT.is_out_of_bounds(GameConfig.glacier_valley, global_position):
 		global_position = _spawn_position
@@ -121,6 +160,7 @@ func _server_tick(delta: float) -> void:
 		rotation.y = _spawn_yaw
 		movement.reset()
 		snowball_action.reset()
+	_record_history()
 
 	_snapshot_elapsed += delta
 	if _snapshot_elapsed >= SNAPSHOT_INTERVAL:
@@ -135,7 +175,9 @@ func _server_tick(delta: float) -> void:
 			inventory.current,
 			snowball_action.state,
 			snowball_action.pack_progress,
-			snowball_action.normalized_charge()
+			snowball_action.normalized_charge(),
+			snowball_action.last_catch_succeeded,
+			_last_catch_rewind_ms
 		)
 
 func _client_prediction_tick(delta: float) -> void:
@@ -143,26 +185,24 @@ func _client_prediction_tick(delta: float) -> void:
 	_apply_local_look()
 	var sequence := _next_sequence
 	_next_sequence += 1
+	_predicted_catch_remaining = maxf(0.0, _predicted_catch_remaining - delta)
+	if command.catch_pressed:
+		_local_charging = false
+		_local_charge_seconds = 0.0
+		_predicted_catch_remaining = GameConfig.snowball.catch_active_seconds + GameConfig.snowball.catch_recovery_seconds
+		_queue_catch_request(sequence)
 	_simulate_local_snowball_prediction(command, delta, sequence)
 	var predicted_speed_multiplier := GameConfig.snowball.pack_movement_multiplier if command.pack_held and _predicted_inventory < GameConfig.snowball.inventory_capacity else 1.0
+	if _predicted_catch_remaining > 0.0:
+		predicted_speed_multiplier = minf(predicted_speed_multiplier, GameConfig.snowball.catch_movement_multiplier)
 	movement.simulate(command, delta, predicted_speed_multiplier)
 	_update_stance(command.crouch_held or movement.is_sliding(), delta)
 
 	_pending_commands.append(_serialize_command(sequence, command, delta, rotation.y))
 	if _pending_commands.size() > 180:
 		_pending_commands.pop_front()
-	submit_input.rpc_id(
-		1,
-		sequence,
-		command.move,
-		command.sprint_held,
-		command.crouch_held,
-		command.jump_pressed,
-		command.pack_held,
-		command.throw_held,
-		rotation.y,
-		_current_aim_direction()
-	)
+	_queue_input_packet(sequence, command, rotation.y, _current_aim_direction())
+	_flush_simulated_network()
 
 func _remote_interpolation_tick(delta: float) -> void:
 	var weight := minf(1.0, delta * 12.0)
@@ -181,7 +221,6 @@ func submit_input(sequence: int, move: Vector2, sprint_held: bool, crouch_held: 
 	if not _valid_finite_vector2(move) or move.length() > 1.05 or is_nan(yaw) or is_inf(yaw) or not _valid_aim_direction(aim_direction):
 		server_rejected_inputs += 1
 		return
-
 	var previous_crouch := _latest_server_command.crouch_held
 	var previous_throw := _latest_server_command.throw_held
 	_last_received_sequence = sequence
@@ -197,8 +236,22 @@ func submit_input(sequence: int, move: Vector2, sprint_held: bool, crouch_held: 
 	rotation.y = wrapf(yaw, -PI, PI)
 	_latest_aim_direction = aim_direction.normalized()
 
+@rpc("any_peer", "call_remote", "reliable", 1)
+func request_catch(input_sequence: int, estimated_server_msec: int) -> void:
+	if not server_authoritative:
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != network_peer_id or input_sequence <= 0:
+		server_rejected_inputs += 1
+		return
+	var now := Time.get_ticks_msec()
+	var max_rewind_ms := int(GameConfig.snowball.max_lag_rewind_seconds * 1000.0)
+	_catch_compensation_server_msec = clampi(estimated_server_msec, now - max_rewind_ms, now)
+	_last_catch_rewind_ms = float(now - _catch_compensation_server_msec)
+	_latest_server_command.catch_pressed = true
+
 @rpc("authority", "call_remote", "unreliable")
-func receive_state(ack_sequence: int, server_position: Vector3, server_velocity: Vector3, server_yaw: float, crouched: bool, rejected_inputs: int, authoritative_inventory: int, hand_state: StringName, pack_progress: float, charge: float) -> void:
+func receive_state(ack_sequence: int, server_position: Vector3, server_velocity: Vector3, server_yaw: float, crouched: bool, rejected_inputs: int, authoritative_inventory: int, hand_state: StringName, pack_progress: float, charge: float, last_catch_succeeded: bool, last_catch_rewind_ms: float) -> void:
 	if server_authoritative:
 		return
 	server_rejected_inputs = rejected_inputs
@@ -206,23 +259,22 @@ func receive_state(ack_sequence: int, server_position: Vector3, server_velocity:
 	_authoritative_hand_state = hand_state
 	_authoritative_pack_progress = pack_progress
 	_authoritative_charge = charge
+	_authoritative_last_catch_succeeded = last_catch_succeeded
+	_last_catch_rewind_ms = last_catch_rewind_ms
 	if not _local_charging:
 		_predicted_inventory = _authoritative_inventory
-
 	if not locally_controlled:
 		_remote_target_position = server_position
 		_remote_target_yaw = server_yaw
 		_remote_crouched = crouched
 		velocity = server_velocity
 		return
-
 	var error_distance := global_position.distance_to(server_position)
 	var remaining: Array[Dictionary] = []
 	for record in _pending_commands:
 		if int(record["sequence"]) > ack_sequence:
 			remaining.append(record)
 	_pending_commands = remaining
-
 	global_position = server_position
 	velocity = server_velocity
 	rotation.y = server_yaw
@@ -237,7 +289,7 @@ func receive_state(ack_sequence: int, server_position: Vector3, server_velocity:
 		reconciliation_count += 1
 
 func _read_local_command(delta: float) -> PlayerInputCommand:
-	if _is_headless() and App.network_smoke_action == &"pack_throw":
+	if _is_headless() and not App.network_smoke_action.is_empty():
 		return _read_smoke_command(delta)
 	var command := PlayerInputCommand.new()
 	command.move = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
@@ -249,24 +301,29 @@ func _read_local_command(delta: float) -> PlayerInputCommand:
 	command.throw_pressed = Input.is_action_just_pressed("throw_primary")
 	command.throw_held = Input.is_action_pressed("throw_primary")
 	command.throw_released = Input.is_action_just_released("throw_primary")
+	command.catch_pressed = Input.is_action_just_pressed("catch")
 	return command
 
 func _read_smoke_command(delta: float) -> PlayerInputCommand:
 	_smoke_elapsed += delta
 	var command := PlayerInputCommand.new()
-	var pack_end := GameConfig.snowball.pack_duration_seconds + 0.30
-	var throw_start := pack_end + 0.15
-	var throw_end := throw_start + GameConfig.snowball.normal_charge_seconds + 0.15
-	if _smoke_elapsed < pack_end:
-		command.pack_held = true
-	elif _smoke_elapsed >= throw_start and _smoke_elapsed < throw_end:
-		command.throw_held = true
-		if not _smoke_throw_started:
-			command.throw_pressed = true
-			_smoke_throw_started = true
-	elif _smoke_elapsed >= throw_end and not _smoke_throw_released:
-		command.throw_released = true
-		_smoke_throw_released = true
+	if App.network_smoke_action == &"pack_throw":
+		var pack_end := GameConfig.snowball.pack_duration_seconds + 0.30
+		var throw_start := pack_end + 0.15
+		var throw_end := throw_start + GameConfig.snowball.normal_charge_seconds + 0.15
+		if _smoke_elapsed < pack_end:
+			command.pack_held = true
+		elif _smoke_elapsed >= throw_start and _smoke_elapsed < throw_end:
+			command.throw_held = true
+			if not _smoke_throw_started:
+				command.throw_pressed = true
+				_smoke_throw_started = true
+		elif _smoke_elapsed >= throw_end and not _smoke_throw_released:
+			command.throw_released = true
+			_smoke_throw_released = true
+	elif App.network_smoke_action == &"catch" and _smoke_elapsed >= 2.50 and not _smoke_catch_sent:
+		command.catch_pressed = true
+		_smoke_catch_sent = true
 	return command
 
 func _simulate_local_snowball_prediction(command: PlayerInputCommand, delta: float, sequence: int) -> void:
@@ -300,6 +357,81 @@ func _on_server_throw_requested(normalized_charge: float) -> void:
 	if session != null:
 		session.server_spawn_snowball(self, normalized_charge, _last_received_sequence, _latest_aim_direction)
 
+func _queue_input_packet(sequence: int, command: PlayerInputCommand, yaw: float, aim_direction: Vector3) -> void:
+	if _should_drop_input(sequence):
+		return
+	var delay_ms := _simulated_one_way_delay_ms(sequence)
+	_network_send_queue.append({
+		"deliver_at": Time.get_ticks_msec() + delay_ms,
+		"sequence": sequence,
+		"move": command.move,
+		"sprint": command.sprint_held,
+		"crouch": command.crouch_held,
+		"jump": command.jump_pressed,
+		"pack": command.pack_held,
+		"throw": command.throw_held,
+		"yaw": yaw,
+		"aim": aim_direction,
+	})
+
+func _queue_catch_request(sequence: int) -> void:
+	var session := get_tree().get_first_node_in_group("network_session") as NetworkSession
+	var estimated_server_msec := Time.get_ticks_msec()
+	if session != null:
+		estimated_server_msec = session.estimated_server_time_msec()
+	_catch_send_queue.append({
+		"deliver_at": Time.get_ticks_msec() + _simulated_one_way_delay_ms(sequence),
+		"sequence": sequence,
+		"server_msec": estimated_server_msec,
+	})
+
+func _flush_simulated_network() -> void:
+	var now := Time.get_ticks_msec()
+	for index in range(_network_send_queue.size() - 1, -1, -1):
+		var record := _network_send_queue[index]
+		if int(record["deliver_at"]) > now:
+			continue
+		submit_input.rpc_id(1, int(record["sequence"]), Vector2(record["move"]), bool(record["sprint"]), bool(record["crouch"]), bool(record["jump"]), bool(record["pack"]), bool(record["throw"]), float(record["yaw"]), Vector3(record["aim"]))
+		_network_send_queue.remove_at(index)
+	for index in range(_catch_send_queue.size() - 1, -1, -1):
+		var record := _catch_send_queue[index]
+		if int(record["deliver_at"]) > now:
+			continue
+		request_catch.rpc_id(1, int(record["sequence"]), int(record["server_msec"]))
+		_catch_send_queue.remove_at(index)
+
+func _simulated_one_way_delay_ms(sequence: int) -> int:
+	var base := App.net_sim_latency_ms / 2
+	if App.net_sim_jitter_ms <= 0:
+		return base
+	var direction := (sequence % 3) - 1
+	return maxi(0, base + int(float(direction * App.net_sim_jitter_ms) * 0.5))
+
+func _should_drop_input(sequence: int) -> bool:
+	if App.net_sim_loss_percent <= 0.0:
+		return false
+	var drop_every := maxi(2, int(round(100.0 / App.net_sim_loss_percent)))
+	return sequence % drop_every == 0
+
+func _record_history() -> void:
+	var now := Time.get_ticks_msec()
+	_state_history.append({"msec": now, "position": global_position, "yaw": rotation.y})
+	var oldest_allowed := now - int(GameConfig.snowball.state_history_seconds * 1000.0)
+	while not _state_history.is_empty() and int(_state_history[0]["msec"]) < oldest_allowed:
+		_state_history.pop_front()
+
+func _history_sample_at(target_msec: int) -> Dictionary:
+	if _state_history.is_empty():
+		return {"msec": Time.get_ticks_msec(), "position": global_position, "yaw": rotation.y}
+	var best: Dictionary = _state_history[0]
+	var best_delta := absi(int(best["msec"]) - target_msec)
+	for sample in _state_history:
+		var delta := absi(int(sample["msec"]) - target_msec)
+		if delta < best_delta:
+			best = sample
+			best_delta = delta
+	return best
+
 func _has_packable_snow() -> bool:
 	for area in snow_source_detector.get_overlapping_areas():
 		if area.is_in_group("snow_source"):
@@ -316,27 +448,13 @@ func _apply_local_look() -> void:
 		return
 	var config := GameConfig.player_movement
 	rotation.y -= _look_accumulator.x * config.mouse_sensitivity
-	_pitch_radians = clampf(
-		_pitch_radians - _look_accumulator.y * config.mouse_sensitivity,
-		deg_to_rad(config.pitch_min_degrees),
-		deg_to_rad(config.pitch_max_degrees)
-	)
+	_pitch_radians = clampf(_pitch_radians - _look_accumulator.y * config.mouse_sensitivity, deg_to_rad(config.pitch_min_degrees), deg_to_rad(config.pitch_max_degrees))
 	if _camera_pivot != null:
 		_camera_pivot.rotation.x = _pitch_radians
 	_look_accumulator = Vector2.ZERO
 
 func _serialize_command(sequence: int, command: PlayerInputCommand, delta: float, yaw: float) -> Dictionary:
-	return {
-		"sequence": sequence,
-		"move": command.move,
-		"sprint": command.sprint_held,
-		"crouch_pressed": command.crouch_pressed,
-		"crouch_held": command.crouch_held,
-		"jump": command.jump_pressed,
-		"pack": command.pack_held,
-		"delta": delta,
-		"yaw": yaw,
-	}
+	return {"sequence": sequence, "move": command.move, "sprint": command.sprint_held, "crouch_pressed": command.crouch_pressed, "crouch_held": command.crouch_held, "jump": command.jump_pressed, "pack": command.pack_held, "delta": delta, "yaw": yaw}
 
 func _deserialize_command(record: Dictionary) -> PlayerInputCommand:
 	var command := PlayerInputCommand.new()
@@ -374,7 +492,6 @@ func _build_client_presentation() -> void:
 		mesh_instance.material_override = material
 		add_child(mesh_instance)
 		return
-
 	_camera_pivot = Node3D.new()
 	_camera_pivot.name = "CameraPivot"
 	_camera_pivot.position = Vector3(0.0, STANDING_CAMERA_Y, 0.0)

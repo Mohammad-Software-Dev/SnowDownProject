@@ -26,7 +26,7 @@ echo "== Snowdown: boot TestArena =="
 echo "== Snowdown: boot Glacier Valley =="
 "$GODOT_BIN" --headless --path "$ROOT" --quit-after 3 -- --scenario=map01_center_arch
 
-echo "== Snowdown: dedicated server + two clients =="
-tests/network/two_client_smoke.sh
+echo "== Snowdown: authoritative catch latency matrix =="
+tests/network/latency_matrix.sh
 
 echo "SNOWDOWN_HEADLESS_VERIFICATION_OK"

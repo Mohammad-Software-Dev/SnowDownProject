@@ -26,6 +26,10 @@ extends Resource
 @export var catch_half_angle_degrees: float = 55.0
 @export var catch_range: float = 1.35
 
+@export_category("Network Compensation")
+@export var max_lag_rewind_seconds: float = 0.20
+@export var state_history_seconds: float = 0.35
+
 func charge_to_speed(normalized_charge: float) -> float:
 	var t := clampf(normalized_charge, 0.0, 1.0)
 	var eased := t * t * (3.0 - 2.0 * t)

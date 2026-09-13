@@ -4,6 +4,7 @@ extends Node3D
 signal state_updated(projectile_id: int, position: Vector3, velocity: Vector3)
 signal terminal_resolved(projectile_id: int, kind: StringName, target_peer_id: int, world_position: Vector3)
 
+const RESULT_CAUGHT := &"caught"
 const RESULT_HEAD := &"head_hit"
 const RESULT_BODY := &"body_hit"
 const RESULT_WORLD := &"world_impact"
@@ -27,12 +28,7 @@ func setup(owner: NetworkPlayer, id: int, spawn_position: Vector3, initial_veloc
 	_shape.radius = GameConfig.snowball.projectile_radius
 
 func get_authoritative_snapshot() -> Dictionary:
-	return {
-		"projectile_id": projectile_id,
-		"owner_peer_id": owner_peer_id,
-		"position": global_position,
-		"velocity": velocity,
-	}
+	return {"projectile_id": projectile_id, "owner_peer_id": owner_peer_id, "position": global_position, "velocity": velocity}
 
 func _physics_process(delta: float) -> void:
 	if not active:
@@ -42,15 +38,14 @@ func _physics_process(delta: float) -> void:
 		_finish(RESULT_WORLD, 0, global_position)
 		return
 
-	var step := SnowballMath.simulate_step(
-		global_position,
-		velocity,
-		delta,
-		GameConfig.player_movement.gravity,
-		GameConfig.snowball.gravity_scale,
-		GameConfig.snowball.drag
-	)
+	var step := SnowballMath.simulate_step(global_position, velocity, delta, GameConfig.player_movement.gravity, GameConfig.snowball.gravity_scale, GameConfig.snowball.drag)
 	var next_position: Vector3 = step["position"]
+	var catcher := _find_valid_catcher(global_position, next_position)
+	if catcher != null:
+		catcher.server_confirm_catch(projectile_id)
+		var catch_position := catcher.server_compensated_catch_origin()
+		_finish(RESULT_CAUGHT, catcher.network_peer_id, catch_position)
+		return
 	var displacement := next_position - global_position
 	if _sweep_and_resolve(displacement):
 		return
@@ -61,6 +56,21 @@ func _physics_process(delta: float) -> void:
 	if _snapshot_elapsed >= SNAPSHOT_INTERVAL:
 		_snapshot_elapsed = 0.0
 		state_updated.emit(projectile_id, global_position, velocity)
+
+func _find_valid_catcher(segment_from: Vector3, segment_to: Vector3) -> NetworkPlayer:
+	var best: NetworkPlayer = null
+	var best_distance := INF
+	for node in get_tree().get_nodes_in_group("network_server_player"):
+		var player := node as NetworkPlayer
+		if player == null or player == owner_player:
+			continue
+		if not player.server_validate_catch_segment(segment_from, segment_to, velocity):
+			continue
+		var distance := segment_to.distance_to(player.server_compensated_catch_origin())
+		if distance < best_distance or (is_equal_approx(distance, best_distance) and (best == null or player.network_peer_id < best.network_peer_id)):
+			best = player
+			best_distance = distance
+	return best
 
 func _sweep_and_resolve(displacement: Vector3) -> bool:
 	if displacement.is_zero_approx():
@@ -74,12 +84,10 @@ func _sweep_and_resolve(displacement: Vector3) -> bool:
 	query.collide_with_bodies = true
 	if owner_player != null:
 		query.exclude = owner_player.get_collision_exclusion_rids()
-
 	var space := get_world_3d().direct_space_state
 	var cast := space.cast_motion(query)
 	if cast.is_empty() or cast[0] >= 1.0:
 		return false
-
 	var unsafe_fraction := cast[1]
 	var impact_position := global_position + displacement * clampf(unsafe_fraction + 0.002, 0.0, 1.0)
 	query.transform = Transform3D(Basis.IDENTITY, impact_position)
@@ -92,7 +100,6 @@ func _sweep_and_resolve(displacement: Vector3) -> bool:
 
 func _classify_collision(hits: Array[Dictionary]) -> Dictionary:
 	var body_target: int = 0
-	var world_found: bool = false
 	for hit in hits:
 		var collider := hit.get("collider") as Node
 		if collider == null:
@@ -106,11 +113,9 @@ func _classify_collision(hits: Array[Dictionary]) -> Dictionary:
 			body_target = target_player.network_peer_id
 		elif collider is NetworkPlayer and collider != owner_player:
 			body_target = (collider as NetworkPlayer).network_peer_id
-		else:
-			world_found = true
 	if body_target != 0:
 		return {"kind": RESULT_BODY, "target_peer_id": body_target}
-	return {"kind": RESULT_WORLD, "target_peer_id": 0 if world_found else 0}
+	return {"kind": RESULT_WORLD, "target_peer_id": 0}
 
 func _target_player_for(collider: Node) -> NetworkPlayer:
 	if collider is NetworkPlayer:

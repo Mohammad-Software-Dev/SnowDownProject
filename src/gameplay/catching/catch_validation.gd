@@ -25,3 +25,19 @@ static func is_valid(
 		return false
 
 	return true
+
+static func is_swept_valid(
+	catch_origin: Vector3,
+	forward: Vector3,
+	segment_from: Vector3,
+	segment_to: Vector3,
+	projectile_velocity: Vector3,
+	catch_range: float,
+	half_angle_degrees: float
+) -> bool:
+	var segment := segment_to - segment_from
+	var closest := segment_from
+	if segment.length_squared() > 0.000001:
+		var t := clampf((catch_origin - segment_from).dot(segment) / segment.length_squared(), 0.0, 1.0)
+		closest = segment_from + segment * t
+	return is_valid(catch_origin, forward, closest, projectile_velocity, catch_range, half_angle_degrees)

@@ -13,7 +13,11 @@ var connect_host: String = ""
 var network_port: int = DEFAULT_NETWORK_PORT
 var network_smoke_name: String = ""
 var network_smoke_action: StringName = &""
+var network_smoke_layout: StringName = &""
 var network_smoke_expected_peers: int = 0
+var net_sim_latency_ms: int = 0
+var net_sim_jitter_ms: int = 0
+var net_sim_loss_percent: float = 0.0
 
 func configure_from_command_line(arguments: PackedStringArray) -> void:
 	INPUT_DEFAULTS.install_if_missing()
@@ -25,7 +29,11 @@ func configure_from_command_line(arguments: PackedStringArray) -> void:
 	network_port = _read_int_argument(arguments, "--port", DEFAULT_NETWORK_PORT)
 	network_smoke_name = String(_read_named_argument(arguments, "--network-smoke-name", ""))
 	network_smoke_action = _read_named_argument(arguments, "--network-smoke-action", "")
+	network_smoke_layout = _read_named_argument(arguments, "--network-smoke-layout", "")
 	network_smoke_expected_peers = _read_int_argument(arguments, "--network-smoke-expected", 0)
+	net_sim_latency_ms = maxi(0, _read_int_argument(arguments, "--net-sim-latency-ms", 0))
+	net_sim_jitter_ms = maxi(0, _read_int_argument(arguments, "--net-sim-jitter-ms", 0))
+	net_sim_loss_percent = clampf(_read_float_argument(arguments, "--net-sim-loss-percent", 0.0), 0.0, 25.0)
 
 	if is_network_runtime() and active_world == StringName(DEFAULT_WORLD) and active_scenario == StringName(DEFAULT_SCENARIO):
 		active_world = &"glacier_valley"
@@ -35,7 +43,7 @@ func configure_from_command_line(arguments: PackedStringArray) -> void:
 	elif active_world == &"glacier_valley" and active_scenario == StringName(DEFAULT_SCENARIO):
 		active_scenario = &"map01_spawn_team_a"
 
-	print("[Snowdown] role=%s world=%s scenario=%s network=%s:%d" % [runtime_role, active_world, active_scenario, connect_host if not connect_host.is_empty() else "off", network_port])
+	print("[Snowdown] role=%s world=%s scenario=%s network=%s:%d sim=%dms/%dms/%.1f%%" % [runtime_role, active_world, active_scenario, connect_host if not connect_host.is_empty() else "off", network_port, net_sim_latency_ms, net_sim_jitter_ms, net_sim_loss_percent])
 
 func is_server_runtime() -> bool:
 	return runtime_role == &"server"
@@ -55,3 +63,7 @@ func _read_named_argument(arguments: PackedStringArray, key: String, fallback: S
 func _read_int_argument(arguments: PackedStringArray, key: String, fallback: int) -> int:
 	var value := String(_read_named_argument(arguments, key, str(fallback)))
 	return value.to_int() if value.is_valid_int() else fallback
+
+func _read_float_argument(arguments: PackedStringArray, key: String, fallback: float) -> float:
+	var value := String(_read_named_argument(arguments, key, str(fallback)))
+	return value.to_float() if value.is_valid_float() else fallback

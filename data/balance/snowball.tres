@@ -23,3 +23,5 @@ catch_recovery_seconds = 0.32
 catch_movement_multiplier = 0.8
 catch_half_angle_degrees = 55.0
 catch_range = 1.35
+max_lag_rewind_seconds = 0.2
+state_history_seconds = 0.35
