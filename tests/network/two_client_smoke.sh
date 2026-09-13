@@ -34,7 +34,7 @@ SIM_ARGS=(--net-sim-latency-ms="$LATENCY" --net-sim-jitter-ms="$JITTER" --net-si
 # receives the team-B slot placed directly on the mirrored snow source at z=-14.
 timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=B --network-smoke-expected=2 --network-smoke-action=catch "${SIM_ARGS[@]}" >"$CLIENT_B_LOG" 2>&1 &
 CLIENT_B_PID=$!
-sleep 0.10
+sleep 0.25
 timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=A --network-smoke-expected=2 --network-smoke-action=pack_throw "${SIM_ARGS[@]}" >"$CLIENT_A_LOG" 2>&1 &
 CLIENT_A_PID=$!
 
