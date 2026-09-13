@@ -44,6 +44,9 @@ func _init() -> void:
 	_assert_equal(int(snapshot["team_b_enemy_half_samples"]), 1, "team B enemy-half occupancy")
 	_assert_equal(int(Dictionary(snapshot["terminals"]).get(&"body_hit", 0)), 2, "body terminals")
 
+	players.clear()
+	team_a.free()
+	team_b.free()
 	print("SNOWDOWN_NETWORK_TELEMETRY_OK")
 	quit(0)
 
