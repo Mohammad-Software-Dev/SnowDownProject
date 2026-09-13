@@ -47,11 +47,42 @@ func configure_from_command_line(arguments: PackedStringArray) -> void:
 
 	print("[Snowdown] role=%s world=%s scenario=%s network=%s:%d sim=%dms/%dms/%.1f%% match_smoke=%s" % [runtime_role, active_world, active_scenario, connect_host if not connect_host.is_empty() else "off", network_port, net_sim_latency_ms, net_sim_jitter_ms, net_sim_loss_percent, match_smoke_enabled])
 
+func configure_for_join(host: String, port: int) -> void:
+	runtime_role = &"client"
+	active_world = &"glacier_valley"
+	active_scenario = &"map01_spawn_team_a"
+	connect_host = host.strip_edges()
+	network_port = clampi(port, SessionAddress.MIN_PORT, SessionAddress.MAX_PORT)
+	_reset_test_runtime_flags()
+	print("[Snowdown] menu join endpoint=%s" % SessionAddress.format_endpoint(connect_host, network_port))
+
+func configure_for_offline_glacier_valley() -> void:
+	runtime_role = &"client"
+	active_world = &"glacier_valley"
+	active_scenario = &"map01_spawn_team_a"
+	connect_host = ""
+	network_port = DEFAULT_NETWORK_PORT
+	_reset_test_runtime_flags()
+	print("[Snowdown] menu offline practice")
+
 func is_server_runtime() -> bool:
 	return runtime_role == &"server"
 
 func is_network_runtime() -> bool:
 	return is_server_runtime() or not connect_host.is_empty()
+
+func has_explicit_launch_arguments() -> bool:
+	return not launch_arguments.is_empty()
+
+func _reset_test_runtime_flags() -> void:
+	network_smoke_name = ""
+	network_smoke_action = &""
+	network_smoke_layout = &""
+	network_smoke_expected_peers = 0
+	match_smoke_enabled = false
+	net_sim_latency_ms = 0
+	net_sim_jitter_ms = 0
+	net_sim_loss_percent = 0.0
 
 func _read_named_argument(arguments: PackedStringArray, key: String, fallback: String) -> StringName:
 	for index in range(arguments.size()):
