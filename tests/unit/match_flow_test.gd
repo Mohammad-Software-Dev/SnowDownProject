@@ -24,6 +24,14 @@ func _initialize() -> void:
 	if not flow.try_score(1, 1) or flow.phase != MatchFlow.PHASE_RESULTS or flow.winner_team != 1:
 		_fail("next valid Sudden Snow score must resolve results")
 		return
+	var frozen_a := flow.team_a_score
+	var frozen_b := flow.team_b_score
+	if flow.try_score(0, 1):
+		_fail("late score must be rejected after Results begins")
+		return
+	if flow.team_a_score != frozen_a or flow.team_b_score != frozen_b:
+		_fail("late score must not mutate frozen Results score")
+		return
 	flow.tick(0.11, 2)
 	if flow.phase != MatchFlow.PHASE_COUNTDOWN or flow.round_number != 2 or flow.team_a_score != 0 or flow.team_b_score != 0:
 		_fail("results must reset into a clean next round")
@@ -43,6 +51,14 @@ func _initialize() -> void:
 	regulation_win.tick(0.06, 2)
 	if regulation_win.phase != MatchFlow.PHASE_RESULTS or regulation_win.winner_team != 0:
 		_fail("regulation leader should win at zero")
+		return
+	var regulation_frozen_a := regulation_win.team_a_score
+	var regulation_frozen_b := regulation_win.team_b_score
+	if regulation_win.try_score(1, 5):
+		_fail("post-regulation Results must reject late score")
+		return
+	if regulation_win.team_a_score != regulation_frozen_a or regulation_win.team_b_score != regulation_frozen_b:
+		_fail("post-regulation Results score must remain immutable")
 		return
 
 	print("SNOWDOWN_MATCH_FLOW_OK")
