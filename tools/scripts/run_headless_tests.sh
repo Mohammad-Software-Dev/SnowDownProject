@@ -36,6 +36,9 @@ run_godot --headless --path "$ROOT" -s tests/unit/first_person_arms_pose_test.gd
 echo "== Snowdown: third-person poses =="
 run_godot --headless --path "$ROOT" -s tests/unit/third_person_pose_test.gd
 
+echo "== Snowdown: winter character palette =="
+run_godot --headless --path "$ROOT" -s tests/unit/winter_character_palette_test.gd
+
 echo "== Snowdown: session addressing =="
 run_godot --headless --path "$ROOT" -s tests/unit/session_address_test.gd
 
