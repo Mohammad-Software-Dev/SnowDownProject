@@ -280,7 +280,7 @@ func _count_team_members(team: int) -> int:
 
 func _spawn_for_team(team: int, slot: int) -> Vector3:
 	if App.network_smoke_layout == &"catch_lane":
-		return Vector3(0.0, 1.15, -5.0) if team == 0 else Vector3(0.0, 1.15, -14.0)
+		return Vector3(0.0, 1.15, -7.0) if team == 0 else Vector3(0.0, 1.15, -14.0)
 	var scenario := &"map01_spawn_team_a" if team == 0 else &"map01_spawn_team_b"
 	var spawn := MAP01_LAYOUT.spawn_for(GameConfig.glacier_valley, scenario)
 	var lateral_offsets := [-9.0, -3.0, 3.0, 9.0]
