@@ -10,6 +10,7 @@ const SESSION_MENU := preload("res://scenes/ui/session_menu.tscn")
 var _host_process := LocalHostProcess.new()
 var _menu: SessionMenu
 var _network_session: NetworkSession
+var _pause_menu: PauseMenu
 var _runtime_nodes: Array[Node] = []
 var _runtime_started: bool = false
 var _recovery_in_progress: bool = false
@@ -73,6 +74,10 @@ func _start_configured_runtime() -> void:
 		_add_runtime_node(PROTOTYPE_HUD.instantiate())
 		_add_runtime_node(FirstPersonArmsPresenter.new())
 		_add_runtime_node(DEBUG_OVERLAY.instantiate())
+		if DisplayServer.get_name() != "headless":
+			_pause_menu = PauseMenu.new()
+			_pause_menu.return_to_menu_requested.connect(_on_pause_return_to_menu_requested)
+			_add_runtime_node(_pause_menu)
 
 func _add_runtime_node(node: Node) -> void:
 	add_child(node)
@@ -81,6 +86,10 @@ func _add_runtime_node(node: Node) -> void:
 func _teardown_runtime() -> void:
 	_runtime_started = false
 	_network_session = null
+	if _pause_menu != null and is_instance_valid(_pause_menu) and _pause_menu.is_open():
+		_pause_menu.close_menu()
+	_pause_menu = null
+	get_tree().paused = false
 	_host_process.stop()
 	for node in _runtime_nodes:
 		if is_instance_valid(node):
@@ -155,3 +164,12 @@ func _on_return_to_menu_requested() -> void:
 	_last_port = App.DEFAULT_NETWORK_PORT
 	_recovery_in_progress = false
 	App.configure_for_menu()
+
+func _on_pause_return_to_menu_requested() -> void:
+	_teardown_runtime()
+	_last_session_kind = &""
+	_last_host = ""
+	_last_port = App.DEFAULT_NETWORK_PORT
+	_recovery_in_progress = false
+	App.configure_for_menu()
+	_show_session_menu()
