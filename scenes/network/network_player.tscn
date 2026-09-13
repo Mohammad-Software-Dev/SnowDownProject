@@ -1,0 +1,24 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://src/network/replication/network_player.gd" id="1"]
+[ext_resource type="Script" path="res://src/gameplay/movement/player_movement_component.gd" id="2"]
+
+[sub_resource type="CapsuleShape3D" id="PlayerShape"]
+radius = 0.42
+height = 1.8
+
+[node name="NetworkPlayer" type="CharacterBody3D"]
+script = ExtResource("1")
+floor_snap_length = 0.3
+floor_max_angle = 0.785398
+collision_layer = 1
+collision_mask = 1
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("PlayerShape")
+
+[node name="Components" type="Node" parent="."]
+
+[node name="Movement" type="Node" parent="Components"]
+script = ExtResource("2")

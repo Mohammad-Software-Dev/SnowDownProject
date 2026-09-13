@@ -28,7 +28,8 @@ func _ready() -> void:
 	_apply_scenario(App.active_scenario)
 	if not App.is_server_runtime():
 		_spawn_practice_targets()
-		_spawn_local_player()
+		if not App.is_network_runtime():
+			_spawn_local_player()
 		_spawn_dummy_layout_if_requested()
 	print("[Snowdown] Glacier Valley graybox ready. scenario=%s spawn=%s" % [App.active_scenario, _spawn_marker.global_position])
 
@@ -40,7 +41,7 @@ func _process(delta: float) -> void:
 		_recover_from_out_of_bounds()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("reset_test"):
+	if local_player != null and event.is_action_pressed("reset_test"):
 		reset_active_scenario()
 		get_viewport().set_input_as_handled()
 
@@ -58,34 +59,27 @@ func get_world_debug_snapshot() -> Dictionary:
 	var nearest_snow := -1.0
 	if local_player != null:
 		nearest_snow = MAP01_LAYOUT.nearest_snow_distance(GameConfig.glacier_valley, local_player.global_position)
-	return {
-		"name": "Glacier Valley graybox",
-		"nearest_snow_distance": nearest_snow,
-	}
+	return {"name": "Glacier Valley graybox", "nearest_snow_distance": nearest_snow}
 
 func _build_graybox() -> void:
 	var config := GameConfig.glacier_valley
 	var width := config.playable_half_width * 2.0
 	var length := config.playable_half_length * 2.0
-
 	_add_block("ValleyFloor", Vector3(width, 1.0, length), Vector3(0.0, -0.5, 0.0), Vector3.ZERO, COLOR_SNOW)
 	_add_block("FrozenRiver", Vector3(config.river_half_width * 2.0, 0.32, length - 12.0), Vector3(0.0, 0.16, 0.0), Vector3.ZERO, COLOR_ICE, &"fast_surface")
-
 	_add_block("WestGlacierWall", Vector3(2.0, 18.0, length), Vector3(-config.playable_half_width - 1.0, 8.5, 0.0), Vector3.ZERO, COLOR_DEEP_ICE)
 	_add_block("EastGlacierWall", Vector3(2.0, 18.0, length), Vector3(config.playable_half_width + 1.0, 8.5, 0.0), Vector3.ZERO, COLOR_DEEP_ICE)
 	_add_block("NorthGlacierWall", Vector3(width, 18.0, 2.0), Vector3(0.0, 8.5, config.playable_half_length + 1.0), Vector3.ZERO, COLOR_ROCK)
 	_add_block("SouthGlacierWall", Vector3(width, 18.0, 2.0), Vector3(0.0, 8.5, -config.playable_half_length - 1.0), Vector3.ZERO, COLOR_ROCK)
-
 	_build_outpost("TeamAOutpost", 1.0, COLOR_TEAM_A)
 	_build_outpost("TeamBOutpost", -1.0, COLOR_TEAM_B)
 	_build_glacier_arch()
 	_build_cave_route()
 	_build_high_shelf()
 	_build_cover_rhythm()
-
-	for index in range(MAP01_LAYOUT.snow_source_positions(config).size()):
-		_add_snow_source("SnowSource%02d" % index, MAP01_LAYOUT.snow_source_positions(config)[index])
-
+	var snow_positions := MAP01_LAYOUT.snow_source_positions(config)
+	for index in range(snow_positions.size()):
+		_add_snow_source("SnowSource%02d" % index, snow_positions[index])
 	if not App.is_server_runtime():
 		_add_sun()
 		_add_landmark_labels()
@@ -143,13 +137,11 @@ func _add_block(name: String, size: Vector3, position: Vector3, rotation: Vector
 	if not group_name.is_empty():
 		body.add_to_group(group_name)
 	add_child(body)
-
 	var shape := BoxShape3D.new()
 	shape.size = size
 	var collision := CollisionShape3D.new()
 	collision.shape = shape
 	body.add_child(collision)
-
 	if not App.is_server_runtime():
 		var box := BoxMesh.new()
 		box.size = size
@@ -167,13 +159,11 @@ func _add_snow_source(source_name: String, position: Vector3) -> void:
 	source.collision_mask = 0
 	source.add_to_group("snow_source")
 	add_child(source)
-
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(5.0, 0.8, 5.0)
 	var collision := CollisionShape3D.new()
 	collision.shape = shape
 	source.add_child(collision)
-
 	if not App.is_server_runtime():
 		var box := BoxMesh.new()
 		box.size = Vector3(5.0, 0.25, 5.0)
@@ -210,11 +200,7 @@ func _place_player_at_active_scenario() -> void:
 	local_player.orient_to_yaw_degrees(MAP01_LAYOUT.spawn_yaw_degrees(App.active_scenario))
 
 func _spawn_practice_targets() -> void:
-	var targets := [
-		Vector3(0.0, 0.25, 0.0),
-		Vector3(5.0, 0.25, -24.0),
-		Vector3(-12.0, 0.25, 24.0),
-	]
+	var targets := [Vector3(0.0, 0.25, 0.0), Vector3(5.0, 0.25, -24.0), Vector3(-12.0, 0.25, 24.0)]
 	for index in range(targets.size()):
 		var target := PRACTICE_TARGET_SCENE.instantiate()
 		target.name = "MapPracticeTarget%02d" % index
@@ -222,7 +208,7 @@ func _spawn_practice_targets() -> void:
 		add_child(target)
 
 func _spawn_dummy_layout_if_requested() -> void:
-	if App.active_scenario != &"map01_4v4_bot_or_dummy_layout_test":
+	if App.active_scenario != &"map01_4v4_bot_or_dummy_layout_test" or App.is_network_runtime():
 		return
 	var positions := [
 		Vector3(-5.0, 0.9, 46.0), Vector3(5.0, 0.9, 46.0), Vector3(-13.0, 0.9, 30.0), Vector3(13.0, 0.9, 30.0),

@@ -21,6 +21,13 @@ func _process(_delta: float) -> void:
 		"fps: %d" % Engine.get_frames_per_second(),
 	]
 
+	var network_session := get_tree().get_first_node_in_group("network_session") as NetworkSession
+	if network_session != null:
+		var net := network_session.get_debug_snapshot()
+		lines.append("net: %s peer=%d roster=%d" % [net["state"], net["peer_id"], net["roster"]])
+		lines.append("rtt: %.1f ms  clock: %+.1f ms" % [net["rtt_ms"], net["clock_offset_ms"]])
+		lines.append("reconciliations: %d  rejected: %d" % [net["reconciliations"], net["server_rejected_inputs"]])
+
 	var gameplay_world := get_tree().get_first_node_in_group("prototype_gameplay_world")
 	if gameplay_world != null:
 		lines.append("practice score: %d" % int(gameplay_world.get("practice_score")))
