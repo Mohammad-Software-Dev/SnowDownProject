@@ -30,6 +30,9 @@ run_godot --headless --path "$ROOT" -s tests/unit/network_telemetry_test.gd
 echo "== Snowdown: snowball presentation =="
 run_godot --headless --path "$ROOT" -s tests/unit/snowball_presentation_test.gd
 
+echo "== Snowdown: first-person arms poses =="
+run_godot --headless --path "$ROOT" -s tests/unit/first_person_arms_pose_test.gd
+
 echo "== Snowdown: session addressing =="
 run_godot --headless --path "$ROOT" -s tests/unit/session_address_test.gd
 
