@@ -46,23 +46,116 @@ func _process(delta: float) -> void:
 
 func _build_visual() -> void:
 	_visual_root = Node3D.new()
-	_visual_root.name = "MannequinVisual"
+	_visual_root.name = "WinterCharacterVisual"
 	add_child(_visual_root)
-	var team_color := Color(0.86, 0.28, 0.18, 1.0) if _player.team_index == 0 else Color(0.18, 0.42, 0.86, 1.0)
-	_torso = _build_box_part("Torso", Vector3(0.46, 0.60, 0.24), team_color)
-	_head = _build_sphere_part("Head", 0.16, Color(0.74, 0.56, 0.44, 1.0))
-	_left_arm = _build_limb("LeftArm", 0.36, 0.07, team_color)
-	_right_arm = _build_limb("RightArm", 0.36, 0.07, team_color)
-	_left_leg = _build_limb("LeftLeg", 0.58, 0.085, Color(0.10, 0.13, 0.18, 1.0))
-	_right_leg = _build_limb("RightLeg", 0.58, 0.085, Color(0.10, 0.13, 0.18, 1.0))
+
+	var palette := WinterCharacterPalette.palette(_player.team_index)
+	var jacket := Color(palette["jacket"])
+	var accent := Color(palette["accent"])
+	var pants := Color(palette["pants"])
+
+	_torso = _build_box_part("Torso", Vector3(0.47, 0.60, 0.25), jacket)
+	_head = _build_sphere_part("Head", 0.155, Color(palette["skin"]))
+	_left_arm = _build_limb("LeftArm", 0.37, 0.068, jacket)
+	_right_arm = _build_limb("RightArm", 0.37, 0.068, jacket)
+	_left_leg = _build_limb("LeftLeg", 0.59, 0.082, pants)
+	_right_leg = _build_limb("RightLeg", 0.59, 0.082, pants)
 	for part in [_torso, _head, _left_arm, _right_arm, _left_leg, _right_leg]:
 		_visual_root.add_child(part)
+
 	_torso.position = Vector3(0.0, 1.18, 0.0)
 	_head.position = Vector3(0.0, 1.63, 0.0)
 	_left_arm.position = Vector3(-0.31, 1.37, 0.0)
 	_right_arm.position = Vector3(0.31, 1.37, 0.0)
 	_left_leg.position = Vector3(-0.14, 0.78, 0.0)
 	_right_leg.position = Vector3(0.14, 0.78, 0.0)
+
+	_add_jacket_detail(_torso, accent, Color(palette["scarf"]))
+	_add_headwear(_head, Color(palette["beanie"]), Color(palette["scarf"]))
+	_add_glove(_left_arm, Color(palette["glove"]))
+	_add_glove(_right_arm, Color(palette["glove"]))
+	_add_boot(_left_leg, Color(palette["boot"]))
+	_add_boot(_right_leg, Color(palette["boot"]))
+
+func _add_jacket_detail(torso_root: Node3D, accent: Color, scarf_color: Color) -> void:
+	var zipper := MeshInstance3D.new()
+	zipper.name = "JacketZipper"
+	var zipper_mesh := BoxMesh.new()
+	zipper_mesh.size = Vector3(0.025, 0.43, 0.018)
+	zipper.mesh = zipper_mesh
+	zipper.position = Vector3(0.0, 0.015, -0.134)
+	zipper.material_override = _material(accent)
+	torso_root.add_child(zipper)
+
+	var badge := MeshInstance3D.new()
+	badge.name = "TeamChestPanel"
+	var badge_mesh := BoxMesh.new()
+	badge_mesh.size = Vector3(0.12, 0.075, 0.02)
+	badge.mesh = badge_mesh
+	badge.position = Vector3(0.115, 0.13, -0.137)
+	badge.material_override = _material(accent)
+	torso_root.add_child(badge)
+
+	var scarf := MeshInstance3D.new()
+	scarf.name = "Scarf"
+	var scarf_mesh := CylinderMesh.new()
+	scarf_mesh.top_radius = 0.16
+	scarf_mesh.bottom_radius = 0.17
+	scarf_mesh.height = 0.09
+	scarf_mesh.radial_segments = 16
+	scarf.mesh = scarf_mesh
+	scarf.position = Vector3(0.0, 0.34, 0.0)
+	scarf.material_override = _material(scarf_color)
+	torso_root.add_child(scarf)
+
+func _add_headwear(head_root: Node3D, beanie_color: Color, hood_color: Color) -> void:
+	var hood := MeshInstance3D.new()
+	hood.name = "Hood"
+	var hood_mesh := SphereMesh.new()
+	hood_mesh.radius = 0.182
+	hood_mesh.height = 0.30
+	hood_mesh.radial_segments = 16
+	hood_mesh.rings = 8
+	hood.mesh = hood_mesh
+	hood.position = Vector3(0.0, -0.005, 0.045)
+	hood.scale = Vector3(1.06, 1.0, 0.92)
+	hood.material_override = _material(hood_color)
+	head_root.add_child(hood)
+
+	var beanie := MeshInstance3D.new()
+	beanie.name = "Beanie"
+	var beanie_mesh := SphereMesh.new()
+	beanie_mesh.radius = 0.17
+	beanie_mesh.height = 0.13
+	beanie_mesh.radial_segments = 16
+	beanie_mesh.rings = 6
+	beanie.mesh = beanie_mesh
+	beanie.position = Vector3(0.0, 0.11, -0.005)
+	beanie.material_override = _material(beanie_color)
+	head_root.add_child(beanie)
+
+func _add_glove(arm_root: Node3D, glove_color: Color) -> void:
+	var glove := MeshInstance3D.new()
+	glove.name = "Glove"
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.075
+	mesh.height = 0.14
+	mesh.radial_segments = 12
+	mesh.rings = 6
+	glove.mesh = mesh
+	glove.position = Vector3(0.0, -0.36, 0.0)
+	glove.material_override = _material(glove_color)
+	arm_root.add_child(glove)
+
+func _add_boot(leg_root: Node3D, boot_color: Color) -> void:
+	var boot := MeshInstance3D.new()
+	boot.name = "Boot"
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.17, 0.14, 0.28)
+	boot.mesh = mesh
+	boot.position = Vector3(0.0, -0.57, -0.06)
+	boot.material_override = _material(boot_color)
+	leg_root.add_child(boot)
 
 func _build_box_part(node_name: String, size: Vector3, color: Color) -> Node3D:
 	var root := Node3D.new()
@@ -82,6 +175,8 @@ func _build_sphere_part(node_name: String, radius: float, color: Color) -> Node3
 	var sphere := SphereMesh.new()
 	sphere.radius = radius
 	sphere.height = radius * 2.0
+	sphere.radial_segments = 16
+	sphere.rings = 8
 	mesh_instance.mesh = sphere
 	mesh_instance.material_override = _material(color)
 	root.add_child(mesh_instance)
@@ -103,7 +198,7 @@ func _build_limb(node_name: String, length: float, radius: float, color: Color) 
 func _material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
-	material.roughness = 0.82
+	material.roughness = 0.84
 	return material
 
 func _update_confirmed_reaction() -> void:
