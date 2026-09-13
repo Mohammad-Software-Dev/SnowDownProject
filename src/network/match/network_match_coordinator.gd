@@ -119,12 +119,14 @@ func _handle_phase_transition(previous_phase: StringName, next_phase: StringName
 		MatchFlow.PHASE_COUNTDOWN:
 			_session.server_clear_all_projectiles(&"round_reset")
 			_session.server_reset_roster_for_round()
+			_session.server_begin_round_telemetry(_flow.round_number)
 		MatchFlow.PHASE_ACTIVE:
 			_session.server_clear_all_projectiles(&"match_start")
 			_session.server_grant_spawn_protection_all(GameConfig.match_rules.spawn_protection_seconds)
 		MatchFlow.PHASE_SUDDEN_SNOW:
 			_session.server_clear_all_projectiles(&"sudden_snow")
 		MatchFlow.PHASE_RESULTS:
+			_session.server_print_round_telemetry(&"round_end")
 			_session.server_clear_all_projectiles(&"round_end")
 	_copy_server_state()
 	_broadcast_state()
