@@ -1,6 +1,12 @@
 class_name FirstPersonArmsPose
 extends RefCounted
 
+const STATE_HANDS_FREE := &"hands_free"
+const STATE_PACKING := &"packing"
+const STATE_THROW_CHARGING := &"throw_charging"
+const STATE_THROW_RECOVERING := &"throw_recovering"
+const STATE_CATCHING := &"catching"
+
 const IDLE_LEFT := Vector3(-0.27, -0.27, -0.48)
 const IDLE_RIGHT := Vector3(0.27, -0.27, -0.48)
 const IDLE_LEFT_ROT := Vector3(-1.02, 0.08, -0.18)
@@ -27,7 +33,7 @@ static func resolve(
 	var ball_visible := inventory > 0
 
 	match hand_state:
-		SnowballActionComponent.PACKING:
+		STATE_PACKING:
 			var gather := smoothstep(0.0, 1.0, pack)
 			left_position = IDLE_LEFT.lerp(Vector3(-0.105, -0.14, -0.47), gather)
 			right_position = IDLE_RIGHT.lerp(Vector3(0.105, -0.14, -0.47), gather)
@@ -36,20 +42,20 @@ static func resolve(
 			ball_position = Vector3(0.0, -0.11, -0.54)
 			ball_scale = lerpf(0.35, 1.0, gather)
 			ball_visible = pack >= 0.35
-		SnowballActionComponent.THROW_CHARGING:
+		STATE_THROW_CHARGING:
 			left_position = Vector3(-0.25, -0.22, -0.48)
 			right_position = Vector3(0.25 + normalized_charge * 0.13, -0.20 + normalized_charge * 0.10, -0.47 + normalized_charge * 0.10)
 			left_rotation = Vector3(-1.08, 0.15, -0.25)
 			right_rotation = IDLE_RIGHT_ROT.lerp(Vector3(-0.55, -0.38, 0.65), normalized_charge)
 			ball_position = right_position + Vector3(-0.015, 0.065, -0.055)
 			ball_visible = inventory > 0
-		SnowballActionComponent.THROW_RECOVERING:
+		STATE_THROW_RECOVERING:
 			left_position = Vector3(-0.28, -0.24, -0.48)
 			right_position = Vector3(0.08, -0.03, -0.63)
 			left_rotation = IDLE_LEFT_ROT
 			right_rotation = Vector3(-1.46, -0.08, 0.18)
 			ball_visible = false
-		SnowballActionComponent.CATCHING:
+		STATE_CATCHING:
 			left_position = Vector3(-0.12, -0.08, -0.53)
 			right_position = Vector3(0.12, -0.08, -0.53)
 			left_rotation = Vector3(-1.36, 0.18, -0.30)
