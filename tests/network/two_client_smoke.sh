@@ -30,11 +30,13 @@ done
 if ! grep -q "SNOWDOWN_NETWORK_SERVER_READY" "$SERVER_LOG"; then cat "$SERVER_LOG"; echo "network server did not become ready" >&2; exit 1; fi
 
 SIM_ARGS=(--net-sim-latency-ms="$LATENCY" --net-sim-jitter-ms="$JITTER" --net-sim-loss-percent="$LOSS")
-timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=A --network-smoke-expected=2 --network-smoke-action=pack_throw "${SIM_ARGS[@]}" >"$CLIENT_A_LOG" 2>&1 &
-CLIENT_A_PID=$!
-sleep 0.10
+# Start the catcher first so it owns the near team-A fixture slot. The thrower then
+# receives the team-B slot placed directly on the mirrored snow source at z=-14.
 timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=B --network-smoke-expected=2 --network-smoke-action=catch "${SIM_ARGS[@]}" >"$CLIENT_B_LOG" 2>&1 &
 CLIENT_B_PID=$!
+sleep 0.10
+timeout 18s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --network-smoke-name=A --network-smoke-expected=2 --network-smoke-action=pack_throw "${SIM_ARGS[@]}" >"$CLIENT_A_LOG" 2>&1 &
+CLIENT_A_PID=$!
 
 STATUS=0
 wait "$CLIENT_A_PID" || STATUS=$?
