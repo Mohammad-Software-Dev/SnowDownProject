@@ -75,17 +75,21 @@ horizontal_alignment = 1
 custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
 
-[node name="HostRow" type="HBoxContainer" parent="Backdrop/Center/Panel/Margin/Content"]
+[node name="NormalControls" type="VBoxContainer" parent="Backdrop/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="HostRow" type="HBoxContainer" parent="Backdrop/Center/Panel/Margin/Content/NormalControls"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="HostButton" type="Button" parent="Backdrop/Center/Panel/Margin/Content/HostRow"]
+[node name="HostButton" type="Button" parent="Backdrop/Center/Panel/Margin/Content/NormalControls/HostRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/normal = SubResource("ButtonStyle")
 text = "HOST MATCH"
 
-[node name="HostPort" type="SpinBox" parent="Backdrop/Center/Panel/Margin/Content/HostRow"]
+[node name="HostPort" type="SpinBox" parent="Backdrop/Center/Panel/Margin/Content/NormalControls/HostRow"]
 custom_minimum_size = Vector2(150, 0)
 layout_mode = 2
 min_value = 1024.0
@@ -94,26 +98,26 @@ value = 7000.0
 allow_greater = false
 allow_lesser = false
 
-[node name="JoinHint" type="Label" parent="Backdrop/Center/Panel/Margin/Content"]
+[node name="JoinHint" type="Label" parent="Backdrop/Center/Panel/Margin/Content/NormalControls"]
 layout_mode = 2
 text = "Join a friend's direct-connect address"
 
-[node name="JoinAddress" type="LineEdit" parent="Backdrop/Center/Panel/Margin/Content"]
+[node name="JoinAddress" type="LineEdit" parent="Backdrop/Center/Panel/Margin/Content/NormalControls"]
 layout_mode = 2
 placeholder_text = "127.0.0.1:7000"
 text = "127.0.0.1:7000"
 clear_button_enabled = true
 
-[node name="JoinButton" type="Button" parent="Backdrop/Center/Panel/Margin/Content"]
+[node name="JoinButton" type="Button" parent="Backdrop/Center/Panel/Margin/Content/NormalControls"]
 layout_mode = 2
 theme_override_styles/normal = SubResource("ButtonStyle")
 text = "JOIN MATCH"
 
-[node name="OfflineButton" type="Button" parent="Backdrop/Center/Panel/Margin/Content"]
+[node name="OfflineButton" type="Button" parent="Backdrop/Center/Panel/Margin/Content/NormalControls"]
 layout_mode = 2
 text = "OFFLINE PRACTICE"
 
-[node name="Status" type="Label" parent="Backdrop/Center/Panel/Margin/Content"]
+[node name="Status" type="Label" parent="Backdrop/Center/Panel/Margin/Content/NormalControls"]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 text = "Host starts a local authoritative server. Share your IP and UDP port with friends."
@@ -121,6 +125,40 @@ autowrap_mode = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="QuitButton" type="Button" parent="Backdrop/Center/Panel/Margin/Content"]
+[node name="QuitButton" type="Button" parent="Backdrop/Center/Panel/Margin/Content/NormalControls"]
 layout_mode = 2
 text = "QUIT"
+
+[node name="RecoveryControls" type="VBoxContainer" parent="Backdrop/Center/Panel/Margin/Content"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="RecoveryTitle" type="Label" parent="Backdrop/Center/Panel/Margin/Content/RecoveryControls"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "CONNECTION LOST"
+horizontal_alignment = 1
+
+[node name="RecoveryMessage" type="Label" parent="Backdrop/Center/Panel/Margin/Content/RecoveryControls"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+text = "The network session ended."
+autowrap_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RecoveryButtons" type="HBoxContainer" parent="Backdrop/Center/Panel/Margin/Content/RecoveryControls"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="RetryButton" type="Button" parent="Backdrop/Center/Panel/Margin/Content/RecoveryControls/RecoveryButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/normal = SubResource("ButtonStyle")
+text = "RETRY CONNECTION"
+
+[node name="ReturnButton" type="Button" parent="Backdrop/Center/Panel/Margin/Content/RecoveryControls/RecoveryButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "RETURN TO MENU"
