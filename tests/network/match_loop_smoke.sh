@@ -9,15 +9,19 @@ SERVER_LOG="$TMP/server.log"
 CLIENT_A_LOG="$TMP/client_a.log"
 CLIENT_B_LOG="$TMP/client_b.log"
 SERVER_PID=""
+CLIENT_A_PID=""
+CLIENT_B_PID=""
 
 cleanup() {
-  if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; fi
+  for pid in "$CLIENT_A_PID" "$CLIENT_B_PID" "$SERVER_PID"; do
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then kill -KILL "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
+  done
   rm -rf "$TMP"
 }
 trap cleanup EXIT
 
 cd "$ROOT"
-timeout 15s "$GODOT_BIN" --headless --path "$ROOT" -- --server --world=glacier_valley --port="$PORT" --match-smoke >"$SERVER_LOG" 2>&1 &
+timeout --kill-after=2s 15s "$GODOT_BIN" --headless --path "$ROOT" -- --server --world=glacier_valley --port="$PORT" --match-smoke >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 for _ in $(seq 1 40); do
   if grep -q "SNOWDOWN_NETWORK_SERVER_READY" "$SERVER_LOG"; then break; fi
@@ -26,10 +30,10 @@ for _ in $(seq 1 40); do
 done
 if ! grep -q "SNOWDOWN_NETWORK_SERVER_READY" "$SERVER_LOG"; then cat "$SERVER_LOG"; echo "match smoke server did not become ready" >&2; exit 1; fi
 
-timeout 10s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --match-smoke --network-smoke-name=A --network-smoke-expected=2 --network-smoke-action=match_observe >"$CLIENT_A_LOG" 2>&1 &
+timeout --kill-after=2s 10s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --match-smoke --network-smoke-name=A --network-smoke-expected=2 --network-smoke-action=match_observe >"$CLIENT_A_LOG" 2>&1 &
 CLIENT_A_PID=$!
 sleep 0.10
-timeout 10s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --match-smoke --network-smoke-name=B --network-smoke-expected=2 --network-smoke-action=match_observe >"$CLIENT_B_LOG" 2>&1 &
+timeout --kill-after=2s 10s "$GODOT_BIN" --headless --path "$ROOT" -- --connect=127.0.0.1 --port="$PORT" --match-smoke --network-smoke-name=B --network-smoke-expected=2 --network-smoke-action=match_observe >"$CLIENT_B_LOG" 2>&1 &
 CLIENT_B_PID=$!
 
 STATUS=0
