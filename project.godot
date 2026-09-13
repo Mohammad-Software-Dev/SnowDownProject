@@ -30,62 +30,20 @@ gdscript/warnings/inferred_declaration=1
 
 [input]
 
-move_forward={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":87)]
-}
-move_backward={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":83)]
-}
-move_left={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":65)]
-}
-move_right={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":68)]
-}
-jump={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":32)]
-}
-sprint={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":4194325)]
-}
-crouch_slide={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":4194326), Object(InputEventKey,"physical_keycode":67)]
-}
-pack_interact={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":69)]
-}
-throw_primary={
-"deadzone": 0.2,
-"events": [Object(InputEventMouseButton,"button_index":1)]
-}
-catch={
-"deadzone": 0.2,
-"events": [Object(InputEventMouseButton,"button_index":2)]
-}
-scoreboard={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":4194308)]
-}
-pause={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":4194305)]
-}
-debug_overlay={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":4194332)]
-}
-reset_test={
-"deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":82)]
-}
+move_forward={"deadzone": 0.2, "events": []}
+move_backward={"deadzone": 0.2, "events": []}
+move_left={"deadzone": 0.2, "events": []}
+move_right={"deadzone": 0.2, "events": []}
+jump={"deadzone": 0.2, "events": []}
+sprint={"deadzone": 0.2, "events": []}
+crouch_slide={"deadzone": 0.2, "events": []}
+pack_interact={"deadzone": 0.2, "events": []}
+throw_primary={"deadzone": 0.2, "events": []}
+catch={"deadzone": 0.2, "events": []}
+scoreboard={"deadzone": 0.2, "events": []}
+pause={"deadzone": 0.2, "events": []}
+debug_overlay={"deadzone": 0.2, "events": []}
+reset_test={"deadzone": 0.2, "events": []}
 
 [rendering]
 
