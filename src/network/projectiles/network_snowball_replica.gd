@@ -11,6 +11,7 @@ var velocity: Vector3 = Vector3.ZERO
 var _target_position: Vector3 = Vector3.ZERO
 var _target_velocity: Vector3 = Vector3.ZERO
 var _age: float = 0.0
+var _streak: SnowballStreak3D
 
 func setup_authoritative(id: int, owner_id: int, spawn_position: Vector3, initial_velocity: Vector3) -> void:
 	projectile_id = id
@@ -56,6 +57,7 @@ func _physics_process(delta: float) -> void:
 		)
 		global_position = step["position"]
 		velocity = step["velocity"]
+		_update_streak()
 		if _age >= 1.5:
 			prediction_expired.emit(prediction_key)
 			queue_free()
@@ -63,18 +65,29 @@ func _physics_process(delta: float) -> void:
 	var weight := minf(1.0, delta * 18.0)
 	global_position = global_position.lerp(_target_position, weight)
 	velocity = velocity.lerp(_target_velocity, weight)
+	_update_streak()
 
 func _build_visual() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
-	var mesh_instance := MeshInstance3D.new()
-	mesh_instance.name = "SnowballMesh"
-	var sphere := SphereMesh.new()
-	sphere.radius = GameConfig.snowball.projectile_radius
-	sphere.height = GameConfig.snowball.projectile_radius * 2.0
-	mesh_instance.mesh = sphere
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.96, 0.98, 1.0, 1.0)
-	material.roughness = 0.85
-	mesh_instance.material_override = material
-	add_child(mesh_instance)
+	if get_node_or_null("SnowballMesh") == null:
+		var mesh_instance := MeshInstance3D.new()
+		mesh_instance.name = "SnowballMesh"
+		var sphere := SphereMesh.new()
+		sphere.radius = GameConfig.snowball.projectile_radius
+		sphere.height = GameConfig.snowball.projectile_radius * 2.0
+		mesh_instance.mesh = sphere
+		var material := StandardMaterial3D.new()
+		material.albedo_color = Color(0.96, 0.98, 1.0, 1.0)
+		material.roughness = 0.85
+		mesh_instance.material_override = material
+		add_child(mesh_instance)
+	if _streak == null:
+		_streak = SnowballStreak3D.new()
+		_streak.name = "VelocityStreak"
+		add_child(_streak)
+	_update_streak()
+
+func _update_streak() -> void:
+	if _streak != null:
+		_streak.update_from_velocity(velocity)
