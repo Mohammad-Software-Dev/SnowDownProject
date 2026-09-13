@@ -38,6 +38,9 @@ func _process(delta: float) -> void:
 	var previous_phase := _flow.phase
 	var previous_round := _flow.round_number
 	_flow.tick(delta, get_tree().get_nodes_in_group("network_server_player").size())
+	if previous_phase != _flow.phase or previous_round != _flow.round_number:
+		_handle_phase_transition(previous_phase, _flow.phase)
+
 	if _flow.phase == MatchFlow.PHASE_SUDDEN_SNOW and App.match_smoke_enabled:
 		_smoke_sudden_elapsed += delta
 		if _smoke_sudden_elapsed >= 0.12:
@@ -47,15 +50,12 @@ func _process(delta: float) -> void:
 				_handle_phase_transition(before_score_phase, _flow.phase)
 	else:
 		_smoke_sudden_elapsed = 0.0
-	if previous_phase != _flow.phase:
-		_handle_phase_transition(previous_phase, _flow.phase)
-	elif previous_round != _flow.round_number:
-		_handle_phase_transition(previous_phase, _flow.phase)
+
 	_copy_server_state()
 	_sync_elapsed += delta
 	if _sync_elapsed >= 0.10:
 		_sync_elapsed = 0.0
-		_broadcast_state(false)
+		_broadcast_state()
 
 func server_resolve_scoring(owner_peer_id: int, target_peer_id: int, kind: StringName) -> StringName:
 	if not App.is_server_runtime() or _flow == null:
@@ -76,7 +76,7 @@ func server_resolve_scoring(owner_peer_id: int, target_peer_id: int, kind: Strin
 		_copy_server_state()
 		if previous_phase != _flow.phase:
 			_handle_phase_transition(previous_phase, _flow.phase)
-		_broadcast_state(true)
+		_broadcast_state()
 	return kind
 
 func server_note_offensive_action(player: NetworkPlayer) -> void:
@@ -93,7 +93,7 @@ func get_debug_snapshot() -> Dictionary:
 		"team_b_score": team_b_score,
 	}
 
-@rpc("authority", "call_remote", "unreliable")
+@rpc("authority", "call_remote", "reliable")
 func client_match_state(new_phase: StringName, new_time_remaining: float, new_round_number: int, new_winner_team: int, score_a: int, score_b: int) -> void:
 	if App.is_server_runtime():
 		return
@@ -115,8 +115,6 @@ func client_match_state(new_phase: StringName, new_time_remaining: float, new_ro
 		get_tree().quit(0)
 
 func _handle_phase_transition(previous_phase: StringName, next_phase: StringName) -> void:
-	if previous_phase == next_phase and next_phase != MatchFlow.PHASE_COUNTDOWN:
-		return
 	match next_phase:
 		MatchFlow.PHASE_COUNTDOWN:
 			_session.server_clear_all_projectiles(&"round_reset")
@@ -129,7 +127,7 @@ func _handle_phase_transition(previous_phase: StringName, next_phase: StringName
 		MatchFlow.PHASE_RESULTS:
 			_session.server_clear_all_projectiles(&"round_end")
 	_copy_server_state()
-	_broadcast_state(true)
+	_broadcast_state()
 	print("SNOWDOWN_MATCH_PHASE from=%s to=%s round=%d score=%d-%d winner=%d" % [previous_phase, next_phase, round_number, team_a_score, team_b_score, winner_team])
 
 func _copy_server_state() -> void:
@@ -145,10 +143,7 @@ func _copy_server_state() -> void:
 		_session.team_a_score = team_a_score
 		_session.team_b_score = team_b_score
 
-func _broadcast_state(reliable: bool) -> void:
+func _broadcast_state() -> void:
 	if not App.is_server_runtime():
 		return
-	if reliable:
-		client_match_state.rpc(phase, time_remaining, round_number, winner_team, team_a_score, team_b_score)
-	else:
-		client_match_state.rpc(phase, time_remaining, round_number, winner_team, team_a_score, team_b_score)
+	client_match_state.rpc(phase, time_remaining, round_number, winner_team, team_a_score, team_b_score)
